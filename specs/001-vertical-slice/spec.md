@@ -292,8 +292,9 @@ plays normally, plays normally **with airplane mode on**.
 
 **Lives, death, restart**
 
-- **FR-022**: The hero MUST start each level with a small fixed number
-  of lives (default: 3, displayed as hearts in the HUD).
+- **FR-022**: The hero MUST start each level with exactly 3 lives
+  (displayed as hearts in the HUD). Configurability is out of scope for
+  v0; if needed later, a future spec adds a settings UI.
 - **FR-023**: When the hero loses a life, system MUST grant a brief
   invulnerability window during respawn so the player cannot lose
   multiple lives in immediate succession from the same hazard.
@@ -409,10 +410,7 @@ plays normally, plays normally **with airplane mode on**.
   user.
 - **SC-004**: With airplane mode on, an installed copy of the game loads
   to a playable state within 5 seconds on the baseline mobile target.
-- **SC-005**: The game feels smooth — players do not perceive frame drops,
-  stutter, or input lag on any baseline-target device under normal
-  gameplay (no enemies stacked beyond design, no concurrent power-ups
-  beyond design).
+- **SC-005**: On the constitution's baseline hardware (2020-era integrated-graphics laptop; 2022-era mid-range Android phone; current-generation iPhone Safari), the game sustains the constitution's 60 FPS target during normal gameplay (no enemies stacked beyond design, no concurrent power-ups beyond design).
 - **SC-006**: Across at least 5 first-time playtests, the slice is
   considered "ready to share" by the playtester (qualitative thumbs-up,
   not "needs work").

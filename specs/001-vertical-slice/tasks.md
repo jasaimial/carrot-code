@@ -69,17 +69,19 @@
 
 ### Tests for User Story 1
 
-- [ ] **T028 [P] [US1]** `tests/unit/narrator-beats.test.ts` — even though the narrator is US3, the `NarratorTrigger` evaluation helper is shared infrastructure; assert pure trigger-evaluation logic. Initially passes vacuously (empty beats array).
+- [ ] **T037 [US1]** Append a Manual Playtest Checklist to [spec.md](./spec.md) under Story 1 (or create `specs/001-vertical-slice/playtests/us1.md`): keyboard play-through, touch play-through, jump arc feels right, coyote/buffer feel right, end-trigger fires. Constitution Principle VI.
 
 ### Implementation for User Story 1
 
-- [ ] **T029 [US1]** Author `src/data/levels/level-01.tmj` in Tiled: a small horizontal level with at least one elevated platform (FR-009), a `spawn` point object, a rectangular `end` trigger, ground tiles, and a CC0 tileset image referenced from `public/assets/tilemaps/`. Source tileset from Kenney.nl; record source + license in `public/assets/CREDITS.md`. Constitution Principles I + IV + VII.
+> Note: T028 was originally a vacuous narrator-test placeholder in this phase. It has been **moved to Phase 5 (User Story 3)** where the narrator implementation actually lives. See T028 below in Phase 5.
+
+- [ ] **T029 [US1]** Author `src/data/levels/level-01.tmj` in Tiled: a small horizontal level with at least one elevated platform (FR-009), a `spawn` point object, a rectangular `end` trigger, ground tiles, and a CC0 tileset image referenced from `public/assets/tilemaps/`. Source tileset from Kenney.nl; **record the exact pack name(s) and download date in `public/assets/CREDITS.md`** for reproducibility per Constitution Principle VII. Constitution Principles I + IV + VII.
 - [ ] **T030 [P] [US1]** Create `src/data/levels/index.ts` — typed `LevelRegistry` exporting `{ "level-01": () => import("./level-01.tmj?url") }`. Adding level 2 later = one line. Constitution Principle IV.
 - [ ] **T031 [P] [US1]** Add Kenney CC0 hero spritesheet (idle + run + jump frames) under `public/assets/sprites/hero/`. Update `KennyAssetService.assets` (T023) with declarations for hero sprite + tileset. Update `public/assets/CREDITS.md` with attribution.
 - [ ] **T032 [US1]** Implement `src/scenes/BootScene.ts`: iterates `assetService.assets` and calls the matching Phaser loader (`load.image` / `load.spritesheet` / `load.tilemapTiledJSON`). Emits a simple progress text. Transitions to `LevelScene` on complete (skipping MenuScene for the slice; MenuScene can be a stub for now).
 - [ ] **T033 [US1]** Implement `src/entities/hero.ts`: factory `createHero(scene, x, y, config)` that returns a typed `Hero` runtime object wrapping a Phaser arcade sprite. State machine wired to `coyote-time` and `jump-buffer` modules from T024/T025. Variable-height jump implemented by zeroing upward velocity on jump-key release (FR-003). Constitution Principle XI ("`Player` is an instance, not a global").
 - [ ] **T034 [US1]** Implement `src/scenes/LevelScene.ts` — generic, level-data-driven: `init(data: { levelId: string })` looks up `LevelData` via `level-loader` + `LevelRegistry`, builds the tilemap, places the hero at `data.spawn`, registers the end-trigger overlap, and on overlap emits an `event: "level-complete"` to the scene registry. NO entities yet beyond the hero (US2 adds them). Constitution Principle IV.
-- [ ] **T035 [US1]** Implement `src/scenes/UIScene.ts` (parallel scene, runs above LevelScene): renders touch controls when `scene.sys.game.device.input.touch === true` (left half = movement zone, right side = jump button). Forwards touch events as the same Phaser keyboard-style events the hero already listens to. Spec FR-006, plan research Q4.
+- [ ] **T035 [US1]** Implement `src/scenes/UIScene.ts` (parallel scene, runs above LevelScene): renders touch controls when `scene.sys.game.device.input.touch === true` (left half = movement zone, right side = jump button). Forwards touch events as the same Phaser keyboard-style events the hero already listens to. **Lock orientation to landscape on phones**: set `orientation: "landscape"` in the PWA manifest (T003/T054) and call `screen.orientation.lock("landscape")` on first user gesture, swallowing the rejection on browsers that disallow it (e.g., desktop, iOS Safari). Spec FR-006, plan research Q4.
 - [ ] **T036 [US1]** Implement `src/scenes/GameOverScene.ts` (used by US2, but the "level complete" outcome from US1 also routes here in a "complete" mode): displays the outcome text and a "Play again" button that restarts `LevelScene` with the same `levelId`. Spec Story 1 acceptance #4.
 - [ ] **T037 [US1]** Append a Manual Playtest Checklist to [spec.md](./spec.md) under Story 1 (or create `specs/001-vertical-slice/playtests/us1.md`): keyboard play-through, touch play-through, jump arc feels right, coyote/buffer feel right, end-trigger fires. Constitution Principle VI.
 
@@ -105,6 +107,10 @@
 - [ ] **T045 [US2]** Wire `SaveService` integration: on `"level-complete"`, `LevelScene` calls `saveService.save({ ...current, completedLevelIds: [...current.completedLevelIds, "level-01"], lifetimeCarrots: current.lifetimeCarrots + carrotsThisRun })`. On `BootScene` start, `saveService.load()` to populate scene-registry initial state. Spec FR-037, Constitution Principle XI.
 - [ ] **T046 [US2]** Append the Manual Playtest Checklist for US2: enemy contact → life lost; powered + enemy contact → no damage; carrots disappear and HUD updates; restart resets carrots + enemy; game-over after 3 hits; carrots persist across sessions per FR-037.
 
+- [ ] **T046a [US2]** Cross-session persistence playtest (FR-037): in a deployed (or `npm run preview`) build, complete the level once; close the tab/app; re-launch from the same browser/install; verify `lifetimeCarrots` and `completedLevelIds` survive. Sign off in the US2 playtest checklist.
+
+- [ ] **T046b [US2]** Accessibility minimum-bar playtest (FR-042 + FR-043): play a full level using only the keyboard, then again using only touch (no input crossover). On a 2022-era mid-range phone in landscape, confirm HUD text (lives / carrots / power-up timer) is legible at arm's length. Sign off in the US2 playtest checklist.
+
 **Checkpoint**: The level is now a *game* — risk, reward, lives, save state. **Spec Story 2 (P2) is independently demoable**, and Story 1 still works.
 
 ---
@@ -114,6 +120,10 @@
 **Goal**: One narrator dialog beat appears shortly after spawn; original prose; dismissable; re-fires on replay.
 
 **Independent Test**: See spec [Story 3 acceptance scenarios](./spec.md#user-story-3--hear-the-narrator-priority-p3).
+
+### Tests for User Story 3
+
+- [ ] **T028 [US3]** Create `tests/unit/narrator-beats.test.ts` and assert pure `NarratorTrigger` evaluation for each `kind` (`after-spawn`, `on-position`, `on-event`). Test-first within the file pair with T048; tests MUST FAIL initially.
 
 ### Implementation for User Story 3
 
@@ -158,6 +168,7 @@
 - [ ] **T062 [P] [POLISH]** Write a comprehensive journal entry under `docs/learning/journal/` covering the full implementation — first time CI ran red, first time a constitution gate caught something, anything surprising about Phaser / vite-plugin-pwa / iOS standalone in practice. Per Constitution II.6.
 - [ ] **T063 [POLISH]** Run `quickstart.md` end-to-end on a clean clone (different folder) to verify the steps actually work as written. Update `quickstart.md` if anything is wrong.
 - [ ] **T064 [POLISH]** Confirm zero known correctness bugs (Spec FR-039, SC-007) by walking the spec's full Acceptance Scenarios + Edge Cases checklist on the deployed PWA. File any failures as new specs (per Principle II — bugs become specs, not "drive-by fixes").
+- [ ] **T064a [POLISH]** Cross-browser baseline verification (Spec FR-040 + FR-041): load the deployed URL on the latest two major versions of Chromium-based browsers (Chrome, Edge), Firefox, and Safari (desktop + mobile per the constitution's browser baseline). Confirm normal play on each; confirm the unsupported-browser fallback (FR-041) renders correctly when forced (e.g., spoofed UA or actual old browser if available). Record the matrix and outcomes in the polish-phase journal entry.
 - [ ] **T065 [POLISH]** Open the PR from `001-vertical-slice` → `main`. PR description: link to spec/plan/tasks, completed playtest checklists, screenshots / install demo video. Self-review (Solo Project Realities preamble). Merge when CI green.
 
 ---
