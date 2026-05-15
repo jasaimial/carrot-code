@@ -1,0 +1,43 @@
+# --- Node / Vite / Phaser ---
+node_modules/
+dist/
+build/
+.cache/
+.vite/
+*.tsbuildinfo
+
+# --- Env & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Coverage / test output ---
+coverage/
+.nyc_output/
+
+# --- Editor / OS ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# --- Spec-kit local state (keep templates, ignore runtime) ---
+.specify/cache/
+
+# --- Aseprite working files (keep exported PNGs, ignore source if huge) ---
+# (uncomment if .ase files get large)
+# *.ase
+# *.aseprite
