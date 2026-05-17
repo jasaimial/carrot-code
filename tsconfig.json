@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // ---------------------------------------------------------------------------
+  // carrot-code — TypeScript config
+  //
+  // Enforces Constitution v1.1.0 Principle III ("Production-Quality Code From
+  // v0"): strict mode, no implicit any, plus a stricter-than-default safety
+  // net (noUncheckedIndexedAccess, noImplicitOverride, etc.) so that the type
+  // system catches the kinds of bugs that show up in playtesting as
+  // "sometimes the hero falls through the floor."
+  //
+  // This is a TYPECHECK-ONLY config (noEmit: true). Vite owns the actual
+  // transpile via esbuild. Source layout is described in
+  //   specs/001-vertical-slice/plan.md#project-structure
+  // ---------------------------------------------------------------------------
+  "compilerOptions": {
+    // --- Language / module target -----------------------------------------
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "useDefineForClassFields": true,
+
+    // --- Strictness (Constitution Principle III) --------------------------
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    "useUnknownInCatchVariables": true,
+
+    // Extra safety beyond `strict: true` — these catch real bugs cheaply.
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+
+    // --- Unused-code discipline -------------------------------------------
+    // ESLint also covers these, but the type-system layer is a cheap second
+    // line of defence and runs faster than lint in editors.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    // --- JSX (not used today; explicit "none" for clarity) ----------------
+    "jsx": "preserve",
+
+    // --- Module interop ---------------------------------------------------
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    // --- Emit (we don't emit; Vite handles the build) ---------------------
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "tests/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+
+  "exclude": ["node_modules", "dist", "coverage", ".vite", "dev-dist"]
+}
