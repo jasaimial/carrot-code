@@ -1,6 +1,39 @@
 <!--
-SYNC IMPACT REPORT — 2026-05-14
+SYNC IMPACT REPORT (cumulative)
 ================================
+
+## v1.1.0 (2026-05-17) — Amendment
+
+Version change: 1.0.0 → 1.1.0 (MINOR — one new principle added)
+Trigger: repository went public on GitHub earlier the same day; existing
+rules did not adequately cover tone or PII in public-facing artifacts.
+
+Modified principles:
+  - II  Spec-First, Always: generalised the "prior charter is inspiration,
+        not spec" rule; removed the specific reference to docs/starter.txt
+        since that file is retired in this same amendment.
+
+Added principles:
+  - XII Public-Repo Hygiene
+
+Removed artifacts:
+  - docs/starter.txt — copyrighted-IP references ("Super Rabbit Run",
+    "Press Start") and raw drafting tone are incompatible with the new
+    Principle XII and were already strained against Principle I. The file
+    is preserved in git history at commit 86d0e21 for anyone curious about
+    the project's origin moment.
+
+Templates re-checked for v1.1.0:
+  ✅ All templates and prompts listed in the v1.0.0 report below — no new
+     per-principle conflicts introduced.
+  ✅ docs/learning/* — no PII or tone issues found in grep audit.
+
+Follow-up TODOs:
+  (none deferred)
+
+---
+
+## v1.0.0 (2026-05-14) — Initial Ratification
 Version change: TEMPLATE → 1.0.0 (initial ratification)
 Bump rationale: First real constitution. The previous file was the unfilled
 template shipped by `specify init`; this is a MAJOR baseline establishment.
@@ -123,9 +156,10 @@ ambiguous IP exposes the project (and its author) to takedown and worse.
 ### II. Spec-First, Always
 
 No production code is written without a corresponding spec → plan → tasks
-artifact set under `specs/<NNN-feature>/`. The starter charter at
-`docs/starter.txt` is historical inspiration, **not** a specification, and
-MUST NOT be cited as authority for implementation decisions.
+artifact set under `specs/<NNN-feature>/`. Any prior brainstorming, charter
+notes, or third-party reference material is *inspiration only* — never
+authority for implementation decisions, and never committed to this repo
+unless it independently passes Principles I and XII.
 
 **Enforceable:** PRs that introduce gameplay or infrastructure code without a
 linked `specs/<NNN>/` directory are rejected. Throwaway spikes are allowed
@@ -372,6 +406,54 @@ are far enough away that the basic disciplines above will handle them
 when they arrive — naming them now would be exactly the trap this
 principle exists to prevent.
 
+### XII. Public-Repo Hygiene
+
+This repository is public on GitHub. Every committed artifact — source
+code, code comments, markdown content, commit messages, PR descriptions,
+journal entries, spec text — must hold up to a stranger reading it cold.
+
+**Tone**: respectful, professional, plain English. No profanity, slurs,
+or gratuitous edge in committed text. Casual language in conversation
+with agents is welcome; what gets committed is different. The test:
+"would I be comfortable if a hiring manager, a teammate, or a twelve-
+year-old read this?"
+
+**Personal info / PII / sensitive data**: never in committed files.
+This includes, but is not limited to:
+
+- Real names beyond the public maintainer's GitHub handle.
+- Email addresses, phone numbers, physical addresses.
+- Internal corporate identifiers, project codenames, or employer-
+  confidential information of any kind.
+- Credentials of any kind — even "redacted," even expired, even fake-
+  looking-but-real.
+- Screenshots that leak browser tabs, usernames, system paths, or
+  identity beyond what's needed to make the documented point.
+- Verbatim chat transcripts that contain any of the above (paraphrase
+  or redact instead).
+
+**Practical defaults**:
+
+- Refer to the maintainer as "the user," "the maintainer," or by the
+  public GitHub handle (`jasaimial`) — never by real name.
+- When pasting terminal output or screenshots into a markdown file,
+  scan for usernames, hostnames, and email addresses first; redact
+  if present.
+- If a leak slips through to a commit: rotate any exposed credential
+  *first*, rewrite the offending history (`git filter-repo` or
+  equivalent) *second*, and journal the incident *third*.
+
+**Enforceable**: Self-review and agent-review per the Solo Project
+Realities preamble. When an agent drafts artifacts for this repo, it
+MUST honour this principle for every file it produces. Anything that
+fails review on tone or PII grounds is a stop-the-line incident — fix
+before merge.
+
+**Rationale**: A public repo is a permanent broadcast. A learning
+project is also a portfolio piece. Both audiences demand the same
+hygiene. Most accidental leaks to public repos happen because nobody
+had a rule forbidding the thing; now we have one.
+
 ## Technology & Asset Constraints
 
 The following choices are locked for the duration of v1.x of this
@@ -427,8 +509,8 @@ Spec-kit tooling itself is pinned per the active version recorded in
 
 ## Governance
 
-This constitution supersedes prior project documents — including
-`docs/starter.txt` — wherever they conflict.
+This constitution supersedes any prior project documents wherever they
+conflict.
 
 - **Authority.** The constitution is the project's highest internal
   authority on process and quality. Other documents (specs, plans, tasks,
@@ -460,4 +542,4 @@ This constitution supersedes prior project documents — including
   constitution disagree, the constitution wins and the guidance is updated
   in the same PR.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
+**Version**: 1.1.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-17
