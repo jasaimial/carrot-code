@@ -1,9 +1,9 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-18 (end of session)
+**Last updated:** 2026-05-18
 **Active branch:** `001-vertical-slice`
 **Active PR:** [#1 (draft)](https://github.com/jasaimial/carrot-code/pull/1)
-**Current task:** T012 done; next is **T013** (typed contracts begin)
+**Current task:** T013–T018 done; next is **T019** (SaveService tests, first test-first module)
 **Local dev:** `npm run dev` → http://localhost:5173 → forest-green page with "BootScene stub" text
 
 > This doc is a **living snapshot** of where the project is right now. It's
@@ -19,9 +19,9 @@
 ## TL;DR — where we are
 
 - **Phase 1 (Setup) complete** — toolchain, CI, deploy config, README.
-- **Phase 2 (Foundational) started** — T012 landed (`index.html` + 5 scene
-  stubs + main.ts + game.ts + vite-env.d.ts). `npm run dev` opens a
-  working Phaser page in the browser.
+- **Phase 2 (Foundational) in progress** — T012 (scene stubs), T013–T017
+  (typed contracts in `src/types/`), and T018 (tuning constants in
+  `src/config/`) all landed. `npm run dev` opens a working Phaser page.
 - **Repo is public**, CI is green on PR #1, branch protection on `main`
   requires CI green. Principle VIII is mechanically enforced.
 
@@ -65,6 +65,18 @@ src/
 ├── main.ts                ← Vite entry; mounts Phaser into #game; registers SW
 ├── game.ts                ← Phaser game config + scene registration
 ├── vite-env.d.ts          ← Vite + vite-plugin-pwa type refs
+├── types/                 ← T013–T017 — typed contracts (no runtime)
+│   ├── runtime-mode.ts    ←   RuntimeMode string-literal union
+│   ├── save-state.ts      ←   SaveState + EMPTY_SAVE_STATE frozen const
+│   ├── entity-config.ts   ←   EnemyConfig | CarrotConfig | PowerupConfig
+│   ├── narrator-beat.ts   ←   NarratorBeat + NarratorTrigger union
+│   └── level.ts           ←   LevelData (re-exports narrator types)
+├── config/                ← T018 — tuning constants (Principle III)
+│   ├── physics.ts         ←   gravity, max fall speed, friction
+│   ├── hero.ts            ←   move/jump, coyote+buffer, lives, hit i-frames
+│   ├── enemy.ts           ←   default patrol speed, contact knockback
+│   ├── powerups.ts        ←   invincibility duration + stack mode + blink
+│   └── ui.ts              ←   HUD positions, dialog timings, fonts
 └── scenes/
     ├── BootScene.ts       ← stub (real: T032)
     ├── MenuScene.ts       ← stub (stays a stub for v0)
@@ -72,44 +84,52 @@ src/
     ├── UIScene.ts         ← stub (real: T035 / T043 / T049)
     └── GameOverScene.ts   ← stub (real: T036)
 
-(src/types/, src/config/, src/services/, src/systems/, src/entities/,
- src/data/, tests/ — all empty; populated through T013–T026)
+(src/services/, src/systems/, src/entities/, src/data/, tests/ —
+ all empty; populated through T019–T026 and the user-story phases.)
 ```
 
 ## What's NOT on disk yet (and why that's fine)
 
-- **No typed contracts** (`src/types/*.ts`) — lands T013–T017. Without
-  these the scenes can't talk to the services yet, but the stubs don't
-  need them.
 - **No services or systems** (`src/services/*`, `src/systems/*`) — lands
-  T019–T026. These are pure logic with tests-first.
+  T019–T026. These are pure logic, written test-first.
 - **No assets** (`public/assets/`) — Phase 3 (US1, T029+).
-- **No tests yet** — Vitest is wired and CI runs it. Tests land alongside
-  the modules they cover, per Constitution Principle VI.
+- **No tests yet** — Vitest is wired and CI runs it (`passWithNoTests`).
+  Tests land alongside the modules they cover, per Constitution
+  Principle VI. First real tests arrive with T019 (SaveService).
 - **No live deploy URL** — Netlify config exists ([netlify.toml](../../netlify.toml))
   but T058 actually wires the integration. Until then, dev is local only.
+- **Config values are placeholders** — the numbers in `src/config/*.ts`
+  are reasonable starting points, NOT playtested. T060 (polish) is the
+  retune pass; per-task playtest checklists (T037 / T046 / T051) feed it.
 
-## Next 3 actions (Phase 2 contracts)
+## Next 3 actions (Phase 2 services & systems)
 
-The plan is to land typed contracts first (T013–T018), then the service
-implementations with tests (T019–T026), then re-wire `game.ts` to use them
-all (T027). Per the tasks.md ordering, here are the next three:
+With all typed contracts and tuning constants in place, the next slab is
+the service + system layer — and this is where **test-first** kicks in
+(Constitution Principle VI). Per tasks.md ordering:
 
-1. **T013** — `src/types/runtime-mode.ts` (RuntimeMode string-literal union).
-   Tiny file (~10 lines). Tests not needed (type-only).
-2. **T014** — `src/types/save-state.ts` (SaveState interface +
-   EMPTY_SAVE_STATE frozen constant). Tiny file (~25 lines).
-3. **T015** — `src/types/entity-config.ts` (EnemyConfig, CarrotConfig,
-   PowerupConfig, EntityConfig discriminated union). ~40 lines.
+1. **T019** — `tests/unit/save-service.test.ts`: the six cases listed in
+   [contracts/save-state.md](../../specs/001-vertical-slice/contracts/save-state.md).
+   Tests MUST FAIL initially (no implementation yet) and that red bar is
+   the proof the test is real. Then **T020** lands the implementation
+   (`src/services/save-service.ts`: `SaveService` interface,
+   `SaveQuotaExceededError`, `LocalStorageSaveService`,
+   `MemorySaveService`) to turn those tests green.
+2. **T021 + T022** — same shape for the level loader:
+   `tests/unit/level-loader.test.ts` (red) → `src/services/level-loader.ts`
+   (pure `loadLevel(tiledJson, ...)` → `LevelData`, green).
+3. **T023** — `src/services/asset-service.ts` (`AssetService` interface +
+   `KennyAssetService` with an empty `assets` array; entries are filled
+   in as each user story lands). No tests needed (just shape + empty
+   data).
 
-All three are `[P]` (parallel-safe — different files, no deps). Reasonable
-to batch into one commit, since they're all "drop typed shapes into
-`src/types/`" with no behaviour. Alternatively one commit each per the
-per-task rule we've been following.
+After that the pure systems (`T024` coyote-time, `T025` jump-buffer,
+`T026` physics-helpers) and finally `T027` rewires `game.ts` to register
+the stub scenes properly with the FPS overlay in dev. Then Phase 2 is
+done and US1 begins.
 
-After T013-T018, **T019/T020 (SaveService + tests)** is the first place
-real behaviour shows up. That's the natural next stopping point if you
-want shorter session chunks.
+Natural stopping points: after T020 (first real green tests), after T026
+(all pure logic covered), after T027 (Phase 2 checkpoint).
 
 ## Open TODOs not blocking anything
 
