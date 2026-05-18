@@ -7,9 +7,11 @@ This folder is the project's **learning journal and process playbook**.
 ## Index
 
 | Doc | Purpose | Audience |
-|---|---|---|
+| --- | --- | --- |
 | [00-setup-from-zero.md](./00-setup-from-zero.md) | Replicable install + first-time scaffold of Spec Kit on a fresh Windows machine | Anyone bootstrapping a new spec-kit project |
 | [01-spec-kit-workflow.md](./01-spec-kit-workflow.md) | The canonical command flow, what each step produces, when to use the optional ones | Anyone using spec-kit day-to-day |
+| [02-phaser-101.md](./02-phaser-101.md) | Phaser 3 mental model + footguns + where each concept lands in this codebase | Anyone reading the game code without Phaser background |
+| [HANDOVER.md](./HANDOVER.md) | Living single-page "where are we now" snapshot of project state | Future-self or fresh agent re-entering the project |
 | [journal/](./journal/) | Chronological case-study entries — what we tried, what worked, what we'd do differently | Future-me; teammates seeing real usage |
 | [templates/session-journal-template.md](./templates/session-journal-template.md) | Copy this when starting a new journal entry | Anyone adding a journal entry |
 | [team-share/](./team-share/) | Polished, team-facing material derived from the journal (not yet populated) | Broader team |
