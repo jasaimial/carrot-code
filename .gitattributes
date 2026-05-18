@@ -1,0 +1,25 @@
+# Enforce LF line endings across the repo regardless of OS.
+# Without this, Windows checkouts would store CRLF in committed files,
+# producing noisy diffs and breaking Prettier's endOfLine: lf check.
+* text=auto eol=lf
+
+# Binary asset types — never normalize line endings.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.svg  text eol=lf
+*.mp3  binary
+*.ogg  binary
+*.wav  binary
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary
+
+# Tiled JSON exports and tilemap atlases — text but preserve formatting.
+*.tmj  text eol=lf
+*.tmx  text eol=lf
+*.tsx  text eol=lf

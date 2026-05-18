@@ -1,0 +1,17 @@
+# Things Prettier should ignore — same as .gitignore plus some files
+# whose formatting is owned by another tool.
+node_modules/
+dist/
+dev-dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Lockfiles: npm owns formatting.
+package-lock.json
+
+# Tiled JSON exports: machine-generated, don't reflow.
+*.tmj
+
+# Spec-kit cache and artifacts under .specify/ are owned by the tool.
+.specify/cache/
