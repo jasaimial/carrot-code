@@ -3,7 +3,7 @@
 **Last updated:** 2026-05-18
 **Active branch:** `001-vertical-slice`
 **Active PR:** [#1 (draft)](https://github.com/jasaimial/carrot-code/pull/1)
-**Current task:** T013–T020 done; next is **T021** (level-loader tests, second test-first module)
+**Current task:** T013–T020 done; PR review follow-ups (T020b, T018a, T035a, docs) shipped; next is **T021** (level-loader tests, third test-first module)
 **Local dev:** `npm run dev` → http://localhost:5173 → forest-green page with "BootScene stub" text
 
 > This doc is a **living snapshot** of where the project is right now. It's
@@ -72,16 +72,20 @@ src/
 │   ├── entity-config.ts   ←   EnemyConfig | CarrotConfig | PowerupConfig
 │   ├── narrator-beat.ts   ←   NarratorBeat + NarratorTrigger union
 │   └── level.ts           ←   LevelData (re-exports narrator types)
-├── config/                ← T018 — tuning constants (Principle III)
+├── config/                ← T018 + T018a — tuning constants (Principle III)
 │   ├── physics.ts         ←   gravity, max fall speed, friction
 │   ├── hero.ts            ←   move/jump, coyote+buffer, lives, hit i-frames
 │   ├── enemy.ts           ←   default patrol speed, contact knockback
 │   ├── powerups.ts        ←   invincibility duration + stack mode + blink
-│   └── ui.ts              ←   HUD positions, dialog timings, fonts
+│   ├── ui.ts              ←   HUD positions, dialog timings, fonts
+│   └── palette.ts         ←   T018a — PALETTE_HEX + PALETTE color tokens
+├── i18n/                  ← T035a — translation seam (Principle III)
+│   ├── en.ts              ←   EN catalog + I18nKey + I18nCatalog types
+│   └── index.ts           ←   t() lookup, setLocale(), getActiveCatalog()
 ├── services/              ← T020 — first real I/O service (Principle XI)
 │   └── save-service.ts    ←   SaveService interface + LocalStorageSaveService
 │                              StorageLike injection, clock injection,
-│                              SaveQuotaExceededError
+│                              SaveStateInput (T020b), SaveQuotaExceededError
 └── scenes/
     ├── BootScene.ts       ← stub (real: T032)
     ├── MenuScene.ts       ← stub (stays a stub for v0)
@@ -91,9 +95,12 @@ src/
 
 tests/
 └── unit/
-    └── save-service.test.ts  ← T019 — 7 tests covering the 6 contract
-                                  cases + clear(). Storage injection
-                                  fake; no jsdom; 100% pass.
+    ├── save-service.test.ts  ← T019/T020b — 7 tests (6 contract cases
+    │                              + clear()). Storage injection fake;
+    │                              no jsdom; 100% pass.
+    └── i18n.test.ts          ← T035a — 3 tests (default catalog,
+                                  setLocale, getActiveCatalog). Same
+                                  reset-in-afterEach pattern.
 
 (src/systems/, src/entities/, src/data/ — still empty; populated
  through T021–T026 and the user-story phases.)
@@ -140,6 +147,59 @@ with the FPS overlay in dev. Then Phase 2 is done and US1 begins.
 Natural stopping points: after T022 (level loader green), after T026
 (all pure logic covered), after T027 (Phase 2 checkpoint).
 
+## Design ground rules (apply to every new piece of code or content)
+
+These are the cross-cutting rules that haven't earned a dedicated
+constitution principle but should be applied without re-asking:
+
+- **Non-blocking degradation.** When something fails that the player
+  didn't cause (storage refused a save, asset failed to load, network
+  hiccup), the game MUST: (1) keep running, (2) show a non-blocking
+  notice if the failure is player-visible, (3) log to console for
+  diagnostics, (4) never retry in a tight loop. The first concrete
+  example is `SaveQuotaExceededError` (Safari private mode); the same
+  rule applies to any future I/O failure.
+- **No hardcoded player-visible strings.** All UI text goes through
+  `t("key")` from `src/i18n/index.ts`. Even if EN is the only locale,
+  the seam stays.
+- **No hardcoded colors.** All colors come from `PALETTE_HEX` /
+  `PALETTE` in `src/config/palette.ts`. Exception: parse-time-only
+  surfaces (index.html `<style>`, vite.config.ts manifest) keep the
+  literal but ship with a comment naming the equivalent token.
+- **No magic numbers in gameplay code.** All tuning lives in
+  `src/config/*.ts`. Per-task playtest checklists feed the polish-phase
+  re-tune (T060).
+- **Services own all I/O.** Scenes never call `localStorage`, `fetch`,
+  or asset URLs directly. Always through a service module.
+- **Per-task commits with rationale.** Each commit explains the WHY,
+  not just the what, in the body. Per-file scope where possible.
+
+## Future roadmap (not in v0; doors are open)
+
+These are explicitly OUT of scope for the 001 slice but mentioned
+here so the architecture decisions don't accidentally close the door:
+
+- **Multi-user profiles.** Each profile would have its own SaveState.
+  Door open via the SaveService dependency-injection seam: extend the
+  storage key from `carrot-code:v1:save` to `carrot-code:v1:save:<profileId>`
+  and have SaveService take a `profileId` arg. Add a ProfileService for
+  the picker UI. Estimated <1 day of work when needed.
+- **User-selectable levels.** Player picks from a level list at the
+  MenuScene. LevelRegistry (T030) is already the seam; what's missing
+  is the MenuScene UI + unlock logic gated on
+  `SaveState.completedLevelIds`. Per-level tuning stays in code (no
+  runtime config tuning); a new level baseline = a redeploy.
+- **Backend persistence (sync across devices).** Today SaveService is
+  the authority; later it could become a write-back cache for a
+  `RemoteSaveService`. The StorageLike interface is the seam. Likely
+  triggered by "play on phone, continue on desktop" use case.
+- **Difficulty settings.** Easy/Normal/Hard difficulty would layer on
+  top of `src/config/hero.ts` via a small `DIFFICULTY_OVERRIDES` map.
+  Post-v0; no playtest data justifies it until v0 ships.
+- **Server-driven config / live-tune.** Explicit NON-goal. Per
+  Constitution Principle XI we don't add network dependencies for
+  things that work fine as static files.
+
 ## Open TODOs not blocking anything
 
 These can stay open until they bite:
@@ -156,6 +216,16 @@ These can stay open until they bite:
   until the first stranger opens an issue or PR. See the
   2026-05-17-constitution-v1.1.0 journal entry for the Principle XII
   follow-up.
+- **PWA icons missing** (404 on `/icons/icon-192.png`). The manifest
+  declares them; the PNGs land in T052 (under `public/icons/`). Browser
+  warning is informational; doesn't break install or play. If the
+  warning becomes annoying before T052, comment out the icon block in
+  [vite.config.ts](../../vite.config.ts) temporarily.
+- **Constitution v1.1.1 amendment proposal pending sign-off.** Add to
+  Principle III: "All player-visible text via `t()`; all colors via
+  `PALETTE_HEX` / `PALETTE`." Drafted but not ratified. See
+  [.specify/memory/constitution.md](../../.specify/memory/constitution.md)
+  Sync Impact Report once landed.
 
 ## How to pick up in a fresh chat
 
@@ -187,6 +257,15 @@ since 2026-05-14; only progress has.
   branch name, open TODOs, what's on disk.
 - **Notable spec-kit sessions get a journal entry** per Principle II.6.
   Trivial commits don't.
+- **Test-first under CI-gate**: write tests first, observe RED locally,
+  `git commit` the tests (don't push), write impl, observe GREEN, commit
+  impl, push BOTH commits in one push. CI only sees the GREEN HEAD;
+  history preserves the test-first ordering. See commit pair 6087c50 +
+  e614673 for the canonical pattern.
+- **PowerShell + apostrophes in `-m`**: don't. Use `git commit -F
+  .commit-msg.tmp` (then `Remove-Item` it) for any message that has
+  single quotes or nested `"`. PowerShell loses the rest of the chained
+  command on a stray `'`.
 
 ## Memory / agent notes
 
