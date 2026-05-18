@@ -92,6 +92,10 @@ export default tseslint.config(
         "warn",
         {
           publicOnly: true,
+          // Empty constructors (e.g., Phaser scenes that just call
+          // `super({ key: "..." })`) are pure ceremony; no useful JSDoc to
+          // write. Class-level JSDoc covers them.
+          exemptEmptyConstructors: true,
           require: {
             FunctionDeclaration: true,
             MethodDefinition: true,
@@ -107,6 +111,10 @@ export default tseslint.config(
       "jsdoc/require-returns-type": "off",
       "jsdoc/require-returns": "off",
       "jsdoc/require-param": "off",
+
+      // Allow the conventional blank line between JSDoc description and
+      // @tags — it's the standard JSDoc style and reads better.
+      "jsdoc/tag-lines": ["warn", "any", { startLines: 1 }],
     },
   },
 

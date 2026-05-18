@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Viewport: no user scaling; the game canvas resizes itself.
+         viewport-fit=cover so iOS standalone-mode uses the full display
+         (no safe-area letterboxing). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+
+    <meta name="theme-color" content="#2d6a3e" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="A 2D pixel-art platformer built as a learning project for game programming + Spec-Driven Development practice."
+    />
+
+    <!-- ===========================================================
+         iOS standalone-mode metadata (Spec FR-034, Constitution V).
+         These are what make 'Add to Home Screen' produce a chromeless
+         app launcher with a splash screen, indistinguishable from a
+         native app to a casual user.
+         The full apple-touch-startup-image set is added in T053.
+         =========================================================== -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Carrot Code" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <title>Carrot Code</title>
+
+    <style>
+      /* Fill the viewport. The game canvas mounts into #game and Phaser
+         sizes it; the body just makes sure there's no scroll bar and no
+         white edges in iOS standalone. */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #2d6a3e;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+
+      #game {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* No-script fallback — message the player rather than a blank page. */
+      .nojs {
+        color: #fdf6e3;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        text-align: center;
+        padding: 2rem;
+        max-width: 28rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game">
+      <noscript>
+        <div class="nojs">
+          <h1>Carrot Code</h1>
+          <p>
+            This game needs JavaScript to run. Please enable JavaScript in your browser settings.
+          </p>
+        </div>
+      </noscript>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
