@@ -12,6 +12,7 @@
 import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
+import { t } from "../i18n/index.js";
 
 /** Stub UI scene — replaced incrementally across T035 / T043 / T049. */
 export class UIScene extends Phaser.Scene {
@@ -22,7 +23,7 @@ export class UIScene extends Phaser.Scene {
   /** Phaser hook — render the placeholder text. */
   public create(): void {
     // Position in the top-left so this doesn't fight other stubs visually.
-    this.add.text(8, 8, "UIScene stub (HUD/touch/dialog lands later)", {
+    this.add.text(8, 8, t("dev.uiStub"), {
       fontFamily: "monospace",
       fontSize: "14px",
       color: PALETTE_HEX.textCream,

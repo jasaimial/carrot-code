@@ -10,6 +10,7 @@
 import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
+import { t } from "../i18n/index.js";
 
 /** Stub menu scene — graduates from stub in a future spec. */
 export class MenuScene extends Phaser.Scene {
@@ -21,7 +22,7 @@ export class MenuScene extends Phaser.Scene {
   public create(): void {
     const { width, height } = this.scale;
     this.add
-      .text(width / 2, height / 2, "MenuScene stub\n(intentionally a stub for v0)", {
+      .text(width / 2, height / 2, t("dev.menuStub"), {
         fontFamily: "monospace",
         fontSize: "20px",
         color: PALETTE_HEX.textCream,

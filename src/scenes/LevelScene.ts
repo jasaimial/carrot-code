@@ -11,6 +11,7 @@
 import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
+import { t } from "../i18n/index.js";
 
 /** Stub level scene — replaced in T034. */
 export class LevelScene extends Phaser.Scene {
@@ -22,7 +23,7 @@ export class LevelScene extends Phaser.Scene {
   public create(): void {
     const { width, height } = this.scale;
     this.add
-      .text(width / 2, height / 2, "LevelScene stub\n(Tiled-driven level renderer lands in T034)", {
+      .text(width / 2, height / 2, t("dev.levelStub"), {
         fontFamily: "monospace",
         fontSize: "20px",
         color: PALETTE_HEX.textCream,
