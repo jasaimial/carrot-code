@@ -36,12 +36,7 @@ export default defineConfig({
 
       // Files in /public that should be precached even though they aren't
       // imported from JS. T053 will expand this with the iOS splash set.
-      includeAssets: [
-        "favicon.svg",
-        "favicon.ico",
-        "robots.txt",
-        "icons/apple-touch-icon.png",
-      ],
+      includeAssets: ["favicon.svg", "favicon.ico", "robots.txt", "icons/apple-touch-icon.png"],
 
       // Web App Manifest. Spec FR-032 / FR-033 / FR-034 / FR-035.
       // Theme + background colors are placeholders until art direction
