@@ -24,10 +24,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EMPTY_SAVE_STATE, type SaveState } from "../../src/types/save-state.js";
+import { EMPTY_SAVE_STATE } from "../../src/types/save-state.js";
 import {
   LocalStorageSaveService,
   SaveQuotaExceededError,
+  type SaveStateInput,
   type StorageLike,
 } from "../../src/services/save-service.js";
 
@@ -99,21 +100,19 @@ describe("LocalStorageSaveService", () => {
   });
 
   // --- Case 1: round-trip --------------------------------------------------
-  it("round-trips a valid SaveState through save → load", () => {
-    const state: SaveState = {
+  it("round-trips a valid SaveStateInput through save → load", () => {
+    const input: SaveStateInput = {
       version: 1,
       completedLevelIds: ["level-01"],
       lifetimeCarrots: 47,
-      lastPlayedAtIso: "2026-05-14T22:30:00.000Z",
     };
-    service.save(state);
+    service.save(input);
     const loaded = service.load();
     expect(loaded.version).toBe(1);
     expect(loaded.completedLevelIds).toEqual(["level-01"]);
     expect(loaded.lifetimeCarrots).toBe(47);
-    // lastPlayedAtIso is stamped by the service from the injected clock,
-    // overriding whatever the caller passed in (data-model.md: "written by
-    // SaveService").
+    // lastPlayedAtIso is stamped by the service from the injected clock.
+    // The type prevents callers from supplying it at all (T020b: Omit).
     expect(loaded.lastPlayedAtIso).toBe(FIXED_NOW_ISO);
   });
 
@@ -154,7 +153,6 @@ describe("LocalStorageSaveService", () => {
       version: 1,
       completedLevelIds: ["b", "a", "a", "c", "b"],
       lifetimeCarrots: 0,
-      lastPlayedAtIso: FIXED_NOW_ISO,
     });
     const loaded = service.load();
     expect(loaded.completedLevelIds).toEqual(["a", "b", "c"]);
@@ -174,7 +172,6 @@ describe("LocalStorageSaveService", () => {
         version: 1,
         completedLevelIds: [],
         lifetimeCarrots: 0,
-        lastPlayedAtIso: FIXED_NOW_ISO,
       });
     }).toThrow(SaveQuotaExceededError);
   });
@@ -185,7 +182,6 @@ describe("LocalStorageSaveService", () => {
       version: 1,
       completedLevelIds: ["level-01"],
       lifetimeCarrots: 1,
-      lastPlayedAtIso: FIXED_NOW_ISO,
     });
     service.clear();
     expect(service.load()).toEqual(EMPTY_SAVE_STATE);

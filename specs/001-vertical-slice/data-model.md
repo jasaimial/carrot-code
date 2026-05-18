@@ -105,7 +105,7 @@ export interface SaveState {
   readonly version: 1;                   // bump on breaking schema change
   readonly completedLevelIds: readonly string[];
   readonly lifetimeCarrots: number;
-  readonly lastPlayedAtIso: string;      // ISO 8601, written by SaveService
+  readonly lastPlayedAtIso: string;      // ISO 8601; assigned by SaveService.save() at write time. The caller-supplied value is ignored — see SaveStateInput in src/services/save-service.ts.
 }
 
 export const EMPTY_SAVE_STATE: SaveState = Object.freeze({

@@ -55,14 +55,26 @@ export interface StorageLike {
 }
 
 /**
+ * Input accepted by {@link SaveService.save}. Identical to {@link SaveState}
+ * except `lastPlayedAtIso` is stripped — SaveService stamps that field
+ * itself from the injected clock, and accepting it from callers would be
+ * misleading (the caller-supplied value is always discarded). This makes
+ * the discard a compile-time fact, not a runtime surprise.
+ */
+export type SaveStateInput = Omit<SaveState, "lastPlayedAtIso">;
+
+/**
  * The save-state read/write contract every scene depends on. See
  * contracts/services.md for the public-API surface.
  */
 export interface SaveService {
   /** Read the current SaveState. Never throws; returns EMPTY_SAVE_STATE on failure. */
   load(): SaveState;
-  /** Persist `state`. Stamps `lastPlayedAtIso` from the injected clock. */
-  save(state: SaveState): void;
+  /**
+   * Persist `state`. `lastPlayedAtIso` is stamped by the service from the
+   * injected clock — callers do not supply it (enforced by the type).
+   */
+  save(state: SaveStateInput): void;
   /** Wipe the save slot. */
   clear(): void;
 }
@@ -179,7 +191,7 @@ export class LocalStorageSaveService implements SaveService {
   }
 
   /** @inheritdoc */
-  public save(state: SaveState): void {
+  public save(state: SaveStateInput): void {
     const normalized: SaveState = {
       version: CURRENT_SCHEMA_VERSION,
       completedLevelIds: dedupeSort(state.completedLevelIds),
