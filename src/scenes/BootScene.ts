@@ -8,6 +8,8 @@
 
 import Phaser from "phaser";
 
+import { PALETTE_HEX } from "../config/palette.js";
+
 /** Stub boot scene — replaced in T032. */
 export class BootScene extends Phaser.Scene {
   public constructor() {
@@ -21,7 +23,7 @@ export class BootScene extends Phaser.Scene {
       .text(width / 2, height / 2, "BootScene stub\n(asset preload lands in T032)", {
         fontFamily: "monospace",
         fontSize: "20px",
-        color: "#fdf6e3",
+        color: PALETTE_HEX.textCream,
         align: "center",
       })
       .setOrigin(0.5);

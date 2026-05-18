@@ -11,6 +11,8 @@
 
 import Phaser from "phaser";
 
+import { PALETTE_HEX } from "../config/palette.js";
+
 /** Stub UI scene — replaced incrementally across T035 / T043 / T049. */
 export class UIScene extends Phaser.Scene {
   public constructor() {
@@ -23,7 +25,7 @@ export class UIScene extends Phaser.Scene {
     this.add.text(8, 8, "UIScene stub (HUD/touch/dialog lands later)", {
       fontFamily: "monospace",
       fontSize: "14px",
-      color: "#fdf6e3",
+      color: PALETTE_HEX.textCream,
     });
   }
 }

@@ -56,9 +56,13 @@ export default defineConfig({
         // manifest suspenders. Desktop / tablets honour device orientation.
         orientation: "landscape",
 
-        // Neutral placeholders — Principle IX (readable) + a TODO for T054.
-        theme_color: "#2d6a3e", // forest green; placeholder
-        background_color: "#fdf6e3", // warm cream; placeholder
+        // Theme + background colors must match the corresponding tokens
+        // in src/config/palette.ts (bgForest / textCream). Not imported
+        // dynamically because the manifest block is evaluated at config
+        // load, before TS module resolution — the discipline is by
+        // convention + comment.
+        theme_color: "#2d6a3e", // = PALETTE_HEX.bgForest
+        background_color: "#fdf6e3", // = PALETTE_HEX.textCream
 
         icons: [
           {

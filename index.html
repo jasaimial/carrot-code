@@ -12,6 +12,9 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
 
+    <!-- theme-color: must match PALETTE_HEX.bgForest in src/config/palette.ts.
+         Not auto-imported because index.html is parsed before the TS module
+         graph exists. If you change one, change both. -->
     <meta name="theme-color" content="#2d6a3e" />
     <meta name="color-scheme" content="light dark" />
     <meta
@@ -37,14 +40,16 @@
     <style>
       /* Fill the viewport. The game canvas mounts into #game and Phaser
          sizes it; the body just makes sure there's no scroll bar and no
-         white edges in iOS standalone. */
+         white edges in iOS standalone.
+         Colors below mirror src/config/palette.ts (bgForest / textCream)
+         and must stay in sync — inline because <style> can't import TS. */
       html,
       body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
-        background: #2d6a3e;
+        background: #2d6a3e; /* = PALETTE_HEX.bgForest */
         overflow: hidden;
         overscroll-behavior: none;
       }
@@ -59,7 +64,7 @@
 
       /* No-script fallback — message the player rather than a blank page. */
       .nojs {
-        color: #fdf6e3;
+        color: #fdf6e3; /* = PALETTE_HEX.textCream */
         font-family: ui-sans-serif, system-ui, sans-serif;
         text-align: center;
         padding: 2rem;

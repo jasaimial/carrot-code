@@ -59,6 +59,7 @@ export const UI = {
   hudFontSizePx: 18,
   /** Narrator dialog font size in CSS pixels. */
   dialogFontSizePx: 20,
-  /** Default HUD text color (Solarized base3, high contrast on dark BG). */
-  hudTextColor: "#fdf6e3",
+  // HUD text color now lives in src/config/palette.ts (PALETTE_HEX.textCream)
+  // per Constitution Principle III: single source of truth per concern.
+  // Import it directly from palette.ts in scenes that render text.
 } as const;

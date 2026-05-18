@@ -10,6 +10,8 @@
 
 import Phaser from "phaser";
 
+import { PALETTE_HEX } from "../config/palette.js";
+
 /** Stub level scene — replaced in T034. */
 export class LevelScene extends Phaser.Scene {
   public constructor() {
@@ -23,7 +25,7 @@ export class LevelScene extends Phaser.Scene {
       .text(width / 2, height / 2, "LevelScene stub\n(Tiled-driven level renderer lands in T034)", {
         fontFamily: "monospace",
         fontSize: "20px",
-        color: "#fdf6e3",
+        color: PALETTE_HEX.textCream,
         align: "center",
       })
       .setOrigin(0.5);

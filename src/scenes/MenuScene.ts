@@ -9,6 +9,8 @@
 
 import Phaser from "phaser";
 
+import { PALETTE_HEX } from "../config/palette.js";
+
 /** Stub menu scene — graduates from stub in a future spec. */
 export class MenuScene extends Phaser.Scene {
   public constructor() {
@@ -22,7 +24,7 @@ export class MenuScene extends Phaser.Scene {
       .text(width / 2, height / 2, "MenuScene stub\n(intentionally a stub for v0)", {
         fontFamily: "monospace",
         fontSize: "20px",
-        color: "#fdf6e3",
+        color: PALETTE_HEX.textCream,
         align: "center",
       })
       .setOrigin(0.5);

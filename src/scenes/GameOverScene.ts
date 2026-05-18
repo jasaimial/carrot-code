@@ -11,6 +11,8 @@
 
 import Phaser from "phaser";
 
+import { PALETTE_HEX } from "../config/palette.js";
+
 /** Stub game-over scene — replaced in T036. */
 export class GameOverScene extends Phaser.Scene {
   public constructor() {
@@ -24,7 +26,7 @@ export class GameOverScene extends Phaser.Scene {
       .text(width / 2, height / 2, "GameOverScene stub\n(end-of-run UI lands in T036)", {
         fontFamily: "monospace",
         fontSize: "20px",
-        color: "#fdf6e3",
+        color: PALETTE_HEX.textCream,
         align: "center",
       })
       .setOrigin(0.5);

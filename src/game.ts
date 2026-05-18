@@ -12,6 +12,7 @@
 
 import Phaser from "phaser";
 
+import { PALETTE_HEX } from "./config/palette.js";
 import { BootScene } from "./scenes/BootScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { LevelScene } from "./scenes/LevelScene";
@@ -44,7 +45,7 @@ export function startGame(parent: HTMLElement): Phaser.Game {
     // Internal resolution; scale.mode handles the actual screen size.
     width: 960,
     height: 540,
-    backgroundColor: "#2d6a3e",
+    backgroundColor: PALETTE_HEX.bgForest,
 
     scale: {
       mode: Phaser.Scale.FIT,
