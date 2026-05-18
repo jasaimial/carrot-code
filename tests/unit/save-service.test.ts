@@ -50,7 +50,11 @@ class MemoryStorage implements StorageLike {
     this.data.delete(key);
   }
 
-  /** Test helper: pre-seed storage with a raw string (e.g., malformed JSON). */
+  /**
+   * Test helper: pre-seed storage with a raw string.
+   * @param key   - Storage key to seed.
+   * @param value - Raw string to place at that key (e.g., malformed JSON).
+   */
   public seed(key: string, value: string): void {
     this.data.set(key, value);
   }
@@ -75,15 +79,17 @@ class QuotaExceededStorage implements StorageLike {
 
 describe("LocalStorageSaveService", () => {
   let storage: MemoryStorage;
-  let warn: ReturnType<typeof vi.fn>;
+  let warn: ReturnType<typeof vi.fn<(msg: string) => void>>;
   let service: LocalStorageSaveService;
 
   beforeEach(() => {
     storage = new MemoryStorage();
-    warn = vi.fn();
+    warn = vi.fn<(msg: string) => void>();
     service = new LocalStorageSaveService({
       storage,
-      logger: warn,
+      logger: (msg: string) => {
+        warn(msg);
+      },
       clock: () => new Date(FIXED_NOW_ISO),
     });
   });
@@ -158,17 +164,19 @@ describe("LocalStorageSaveService", () => {
   it("throws SaveQuotaExceededError when setItem throws", () => {
     const failing = new LocalStorageSaveService({
       storage: new QuotaExceededStorage(),
-      logger: warn,
+      logger: (msg: string) => {
+        warn(msg);
+      },
       clock: () => new Date(FIXED_NOW_ISO),
     });
-    expect(() =>
+    expect(() => {
       failing.save({
         version: 1,
         completedLevelIds: [],
         lifetimeCarrots: 0,
         lastPlayedAtIso: FIXED_NOW_ISO,
-      }),
-    ).toThrow(SaveQuotaExceededError);
+      });
+    }).toThrow(SaveQuotaExceededError);
   });
 
   // --- Bonus: clear --------------------------------------------------------

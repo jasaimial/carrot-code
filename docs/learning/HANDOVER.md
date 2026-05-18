@@ -3,7 +3,7 @@
 **Last updated:** 2026-05-18
 **Active branch:** `001-vertical-slice`
 **Active PR:** [#1 (draft)](https://github.com/jasaimial/carrot-code/pull/1)
-**Current task:** T013–T018 done; next is **T019** (SaveService tests, first test-first module)
+**Current task:** T013–T020 done; next is **T021** (level-loader tests, second test-first module)
 **Local dev:** `npm run dev` → http://localhost:5173 → forest-green page with "BootScene stub" text
 
 > This doc is a **living snapshot** of where the project is right now. It's
@@ -20,8 +20,9 @@
 
 - **Phase 1 (Setup) complete** — toolchain, CI, deploy config, README.
 - **Phase 2 (Foundational) in progress** — T012 (scene stubs), T013–T017
-  (typed contracts in `src/types/`), and T018 (tuning constants in
-  `src/config/`) all landed. `npm run dev` opens a working Phaser page.
+  (typed contracts in `src/types/`), T018 (tuning constants in
+  `src/config/`), and T019–T020 (first real service: SaveService with
+  7 unit tests) all landed. First green tests in `tests/unit/`.
 - **Repo is public**, CI is green on PR #1, branch protection on `main`
   requires CI green. Principle VIII is mechanically enforced.
 
@@ -77,6 +78,10 @@ src/
 │   ├── enemy.ts           ←   default patrol speed, contact knockback
 │   ├── powerups.ts        ←   invincibility duration + stack mode + blink
 │   └── ui.ts              ←   HUD positions, dialog timings, fonts
+├── services/              ← T020 — first real I/O service (Principle XI)
+│   └── save-service.ts    ←   SaveService interface + LocalStorageSaveService
+│                              StorageLike injection, clock injection,
+│                              SaveQuotaExceededError
 └── scenes/
     ├── BootScene.ts       ← stub (real: T032)
     ├── MenuScene.ts       ← stub (stays a stub for v0)
@@ -84,18 +89,26 @@ src/
     ├── UIScene.ts         ← stub (real: T035 / T043 / T049)
     └── GameOverScene.ts   ← stub (real: T036)
 
-(src/services/, src/systems/, src/entities/, src/data/, tests/ —
- all empty; populated through T019–T026 and the user-story phases.)
+tests/
+└── unit/
+    └── save-service.test.ts  ← T019 — 7 tests covering the 6 contract
+                                  cases + clear(). Storage injection
+                                  fake; no jsdom; 100% pass.
+
+(src/systems/, src/entities/, src/data/ — still empty; populated
+ through T021–T026 and the user-story phases.)
 ```
 
 ## What's NOT on disk yet (and why that's fine)
 
-- **No services or systems** (`src/services/*`, `src/systems/*`) — lands
-  T019–T026. These are pure logic, written test-first.
+- **No level loader** (`src/services/level-loader.ts`) — lands T021/T022
+  next (test-first). Same pattern as SaveService: tests RED first, then
+  implementation GREEN.
+- **No AssetService** (`src/services/asset-service.ts`) — lands T023.
+  Shape + empty `assets` array; entries get filled in by user stories.
+- **No pure systems** (`src/systems/*`) — lands T024–T026 (coyote-time,
+  jump-buffer, physics-helpers), each test-first.
 - **No assets** (`public/assets/`) — Phase 3 (US1, T029+).
-- **No tests yet** — Vitest is wired and CI runs it (`passWithNoTests`).
-  Tests land alongside the modules they cover, per Constitution
-  Principle VI. First real tests arrive with T019 (SaveService).
 - **No live deploy URL** — Netlify config exists ([netlify.toml](../../netlify.toml))
   but T058 actually wires the integration. Until then, dev is local only.
 - **Config values are placeholders** — the numbers in `src/config/*.ts`
@@ -104,31 +117,27 @@ src/
 
 ## Next 3 actions (Phase 2 services & systems)
 
-With all typed contracts and tuning constants in place, the next slab is
-the service + system layer — and this is where **test-first** kicks in
-(Constitution Principle VI). Per tasks.md ordering:
+With SaveService done, the same test-first pattern applies to the next
+three slots:
 
-1. **T019** — `tests/unit/save-service.test.ts`: the six cases listed in
-   [contracts/save-state.md](../../specs/001-vertical-slice/contracts/save-state.md).
-   Tests MUST FAIL initially (no implementation yet) and that red bar is
-   the proof the test is real. Then **T020** lands the implementation
-   (`src/services/save-service.ts`: `SaveService` interface,
-   `SaveQuotaExceededError`, `LocalStorageSaveService`,
-   `MemorySaveService`) to turn those tests green.
-2. **T021 + T022** — same shape for the level loader:
-   `tests/unit/level-loader.test.ts` (red) → `src/services/level-loader.ts`
-   (pure `loadLevel(tiledJson, ...)` → `LevelData`, green).
-3. **T023** — `src/services/asset-service.ts` (`AssetService` interface +
-   `KennyAssetService` with an empty `assets` array; entries are filled
-   in as each user story lands). No tests needed (just shape + empty
-   data).
+1. **T021 + T022** — level loader, same TDD shape as T019/T020.
+   `tests/unit/level-loader.test.ts` covering the four loader invariants
+   from [contracts/level-format.md](../../specs/001-vertical-slice/contracts/level-format.md#loader-contract)
+   (RED) → `src/services/level-loader.ts`: pure
+   `loadLevel(tiledJson, levelId, levelName, assetBudgetBytes): LevelData`
+   + `LevelLoadError` (GREEN). Two commits, pushed together.
+2. **T023** — `src/services/asset-service.ts`: `AssetService` interface +
+   `AssetDeclaration` type + `KennyAssetService` with an empty `assets`
+   array. No tests needed (shape + empty data; user stories fill it in).
+3. **T024 (or T025 or T026)** — first pure system, test-first within the
+   file pair. Pick coyote-time, jump-buffer, or physics-helpers. All
+   three are independent; doing them in this order matches the order
+   they're consumed by the hero entity (T033).
 
-After that the pure systems (`T024` coyote-time, `T025` jump-buffer,
-`T026` physics-helpers) and finally `T027` rewires `game.ts` to register
-the stub scenes properly with the FPS overlay in dev. Then Phase 2 is
-done and US1 begins.
+After T026, **T027 rewires `game.ts`** to register the scenes properly
+with the FPS overlay in dev. Then Phase 2 is done and US1 begins.
 
-Natural stopping points: after T020 (first real green tests), after T026
+Natural stopping points: after T022 (level loader green), after T026
 (all pure logic covered), after T027 (Phase 2 checkpoint).
 
 ## Open TODOs not blocking anything
