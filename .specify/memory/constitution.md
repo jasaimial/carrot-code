@@ -2,6 +2,42 @@
 SYNC IMPACT REPORT (cumulative)
 ================================
 
+## v1.1.1 (2026-05-18) — Amendment
+
+Version change: 1.1.0 → 1.1.1 (PATCH — clarification of existing
+principle; no new principle, no removal, no rationale shift)
+Trigger: PR #1 review surfaced two recurring code-review questions
+("why is this color hardcoded?", "why is this string not in a catalog?").
+The answer in both cases was "we should have a seam"; the seams now
+exist (T018a palette, T035a i18n) and this amendment formalises the
+rule so future PRs don't have to re-derive it.
+
+Modified principles:
+  - III Production-Quality Code From v0: two new MUST bullets added to
+        the mechanical-bars list — no hardcoded player-visible strings
+        (all UI text via t() from src/i18n/), no hardcoded colors in
+        gameplay code (all colors via PALETTE_HEX / PALETTE in
+        src/config/palette.ts). Parse-time-only surfaces (index.html
+        inline style, vite.config.ts manifest) get an explicit carve-out
+        with a comment-naming-the-token discipline.
+
+Added principles:
+  (none)
+
+Removed artifacts:
+  (none)
+
+Templates re-checked for v1.1.1:
+  ✅ All templates listed in v1.0.0 / v1.1.0 reports below — none
+     reference colors or strings specifically; no edits required.
+
+Follow-up TODOs:
+  (none deferred — both seams already shipped in commits 0efc564
+  and 47217f1 before this amendment lands; the amendment formalises
+  current code, not future intent)
+
+---
+
 ## v1.1.0 (2026-05-17) — Amendment
 
 Version change: 1.0.0 → 1.1.0 (MINOR — one new principle added)
@@ -178,6 +214,18 @@ Every commit on `main` MUST satisfy these mechanical bars:
 - No magic numbers in gameplay logic — physics, timing, animation, and tuning
   constants live in typed config modules under `src/config/` and are
   imported, not inlined.
+- **No hardcoded player-visible strings.** All UI text — HUD labels, button
+  text, dialog framing, outcome messages — MUST go through `t("key")` from
+  `src/i18n/`, even when only one language is supported. New text adds a key
+  to `src/i18n/en.ts` first, then references it. Narrator beat content
+  (`src/data/narrator-beats.ts`) is gameplay data, not UI strings, and is
+  exempt from this rule.
+- **No hardcoded colors in gameplay code.** All colors come from
+  `PALETTE_HEX` / `PALETTE` in `src/config/palette.ts`. Exception: surfaces
+  parsed before the TS module graph exists (`index.html` inline styles,
+  `vite.config.ts` manifest) keep the literal but ship with a comment
+  naming the equivalent palette token; PRs touching colors must update
+  both ends.
 - **No secrets, credentials, API keys, tokens, or personally identifying
   data** in the repository, in build outputs, or in commit history.
   Environment files (`.env`, `.env.*`) are gitignored; example files
@@ -542,4 +590,4 @@ conflict.
   constitution disagree, the constitution wins and the guidance is updated
   in the same PR.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-17
+**Version**: 1.1.1 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-18
