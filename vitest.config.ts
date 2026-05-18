@@ -24,9 +24,12 @@ export default defineConfig({
     include: ["tests/**/*.{test,spec}.ts"],
     exclude: ["node_modules", "dist", ".vite", "dev-dist", "coverage"],
 
-    // Per-file environment override: any test file under tests/unit/dom/
-    // runs in jsdom. Everything else stays node.
-    environmentMatchGlobs: [["tests/unit/dom/**", "jsdom"]],
+    // NOTE: Vitest 4 removed the `environmentMatchGlobs` option that earlier
+    // plan drafts used to per-glob-switch to jsdom for DOM-touching tests.
+    // Replacement options in v4 (`projects`, or a separate vitest.dom.config)
+    // add ceremony we don't need yet — v0 has no DOM tests. When the first
+    // one lands under tests/unit/dom/, introduce a second config file and
+    // wire both into the `test` and `test:coverage` npm scripts.
 
     coverage: {
       provider: "v8",

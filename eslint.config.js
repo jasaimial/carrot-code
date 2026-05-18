@@ -34,10 +34,12 @@ export default tseslint.config(
   js.configs.recommended,
 
   // --- TypeScript: strict + type-aware --------------------------------------
-  // `strictTypeChecked` brings in rules that require parserOptions.project,
-  // wired below per-file-group.
-  ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
+  // `strictTypeChecked` brings in rules that require parserOptions.project.
+  // Scope these rule sets to **/*.ts so they never try to attach to .js
+  // files (like this config itself), which aren't in tsconfig.json's
+  // `include` and would otherwise fail with a parser-services error.
+  ...tseslint.configs.strictTypeChecked.map((c) => ({ ...c, files: ["**/*.ts"] })),
+  ...tseslint.configs.stylisticTypeChecked.map((c) => ({ ...c, files: ["**/*.ts"] })),
 
   // --- Project-wide TS settings --------------------------------------------
   {
@@ -97,11 +99,7 @@ export default tseslint.config(
             ArrowFunctionExpression: false,
             FunctionExpression: false,
           },
-          contexts: [
-            "TSInterfaceDeclaration",
-            "TSTypeAliasDeclaration",
-            "TSEnumDeclaration",
-          ],
+          contexts: ["TSInterfaceDeclaration", "TSTypeAliasDeclaration", "TSEnumDeclaration"],
         },
       ],
       // We use TypeScript for types; no need to repeat them in JSDoc.
@@ -123,13 +121,17 @@ export default tseslint.config(
   },
 
   // --- Config files: relax type-aware rules ---------------------------------
+  // .js files aren't in tsconfig.json's `include`, so the type-aware rule
+  // sets fail with "parserOptions not set to generate type information for
+  // this file." Drop them onto the non-type-aware track.
   {
-    files: ["*.config.ts", "*.config.js"],
+    files: ["*.config.js", "*.config.mjs", "*.config.cjs"],
+    ...tseslint.configs.disableTypeChecked,
     rules: {
       "jsdoc/require-jsdoc": "off",
     },
   },
 
   // --- Prettier (MUST be last so it can disable conflicting style rules) ----
-  prettier
+  prettier,
 );
