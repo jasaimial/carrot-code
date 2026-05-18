@@ -4,6 +4,7 @@ dist/
 build/
 .cache/
 .vite/
+dev-dist/
 *.tsbuildinfo
 
 # --- Env & secrets ---
