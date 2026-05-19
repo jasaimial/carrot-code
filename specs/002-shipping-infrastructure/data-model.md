@@ -70,20 +70,25 @@ The committed file should be a strict subset of the SWA configuration schema doc
     },
     {
       // Manifest changes occasionally (icon updates, name changes). Short
-      // cache + explicit content-type for browsers that don't infer it.
+      // cache. (Content-Type override moved to mimeTypes below per SWA's
+      // actual schema — route-header Content-Type was ignored by SWA's
+      // response pipeline; the canonical location for MIME overrides is
+      // the mimeTypes block.)
       "route": "/manifest.webmanifest",
       "headers": {
-        "Cache-Control": "public, max-age=600",
-        "Content-Type": "application/manifest+json"
+        "Cache-Control": "public, max-age=600"
       }
     }
   ],
 
-  // MIME types for any extensions SWA's defaults miss. Today, vite-plugin-pwa
-  // sometimes emits files SWA's MIME table handles correctly; if a future
-  // build introduces an extension SWA doesn't know (e.g., .tmj from Tiled
-  // exports moved to public/), add it here. Empty object is fine for v0.
-  "mimeTypes": {}
+  // MIME-type overrides by file extension. SWA's response pipeline picks
+  // Content-Type from this table BEFORE any per-route headers, so this
+  // is the only place to set application/manifest+json on .webmanifest
+  // (verified empirically during T114; the original spec had this in
+  // routes[].headers and SWA silently ignored it).
+  "mimeTypes": {
+    ".webmanifest": "application/manifest+json"
+  }
 }
 ```
 

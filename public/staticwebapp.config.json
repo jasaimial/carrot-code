@@ -30,10 +30,11 @@
     {
       "route": "/manifest.webmanifest",
       "headers": {
-        "Cache-Control": "public, max-age=600",
-        "Content-Type": "application/manifest+json"
+        "Cache-Control": "public, max-age=600"
       }
     }
   ],
-  "mimeTypes": {}
+  "mimeTypes": {
+    ".webmanifest": "application/manifest+json"
+  }
 }
