@@ -44,7 +44,12 @@ interface TiledObject {
   readonly properties: readonly TiledProperty[];
 }
 
-/** Build a Tiled-style property entry. */
+/**
+ * Build a Tiled-style property entry.
+ * @param name  - Property name as it would appear in Tiled.
+ * @param value - String or number value (the loader rejects others).
+ * @returns A `TiledProperty` ready to embed in a fixture object.
+ */
 function prop(name: string, value: string | number): TiledProperty {
   return {
     name,
@@ -53,7 +58,10 @@ function prop(name: string, value: string | number): TiledProperty {
   };
 }
 
-/** A complete object set: spawn + end + one of each entity kind. */
+/**
+ * A complete object set: spawn + end + one of each entity kind.
+ * @returns A fresh mutable array; tests are free to mutate / filter it.
+ */
 function defaultObjects(): TiledObject[] {
   return [
     {
@@ -105,7 +113,11 @@ function defaultObjects(): TiledObject[] {
   ];
 }
 
-/** Wrap a list of object-layer objects in a minimal Tiled map. */
+/**
+ * Wrap a list of object-layer objects in a minimal Tiled map.
+ * @param objects - The objects to place on the `entities` object layer.
+ * @returns A Tiled-shaped object ready to hand to `loadLevel`.
+ */
 function tiledMap(objects: readonly TiledObject[]): object {
   return {
     width: 30,
@@ -248,8 +260,17 @@ describe("loadLevel", () => {
 
   it("throws LevelLoadError when the end object is missing width/height", () => {
     // The `end` object MUST be a rectangle per contracts/level-format.md.
-    const objects = defaultObjects().map((o) =>
-      o.name === "end-zone" ? { ...o, width: undefined, height: undefined } : o,
+    // We rebuild the end entry without width/height rather than spreading
+    // `undefined` (rejected under exactOptionalPropertyTypes: true).
+    const objects: TiledObject[] = defaultObjects().map((o) =>
+      o.name === "end-zone"
+        ? {
+            name: o.name,
+            x: o.x,
+            y: o.y,
+            properties: o.properties,
+          }
+        : o,
     );
     expect(() => loadLevel(tiledMap(objects), "level-01", "Forest 1", 250_000)).toThrow(
       LevelLoadError,
