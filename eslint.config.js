@@ -140,6 +140,29 @@ export default tseslint.config(
     },
   },
 
+  // --- Repo-level Node scripts (infra/, scripts/) ---------------------------
+  // These are one-off helpers (icon generation, infra provisioning) that run
+  // under Node, not in the browser. They need Node globals (`console`,
+  // `process`, `Buffer`) recognized, are not in tsconfig.json's include, and
+  // don't need the production code's strict JSDoc / type-rule discipline.
+  {
+    files: ["scripts/**/*.mjs", "scripts/**/*.js", "infra/**/*.mjs", "infra/**/*.js"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        Buffer: "readonly",
+      },
+    },
+    rules: {
+      "jsdoc/require-jsdoc": "off",
+      "jsdoc/no-types": "off",
+      "jsdoc/require-param-description": "off",
+      "jsdoc/require-returns-description": "off",
+    },
+  },
+
   // --- Prettier (MUST be last so it can disable conflicting style rules) ----
   prettier,
 );

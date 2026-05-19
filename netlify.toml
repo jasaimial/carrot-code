@@ -1,4 +1,16 @@
 # -----------------------------------------------------------------------------
+# NOTE (2026-05): This project deploys via Azure Static Web Apps, not Netlify.
+# See:
+#   - .github/workflows/azure-static-web-apps-happy-desert-0fe507f1e.yml
+#   - ./staticwebapp.config.json
+#   - specs/002-shipping-infrastructure/
+#
+# This file is retained for reference only; Netlify is not invoked by any
+# current pipeline. Removal is out of scope for the 002 feature (separable
+# cleanup spec if ever desired). Per FR-020 of 002.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
 # carrot-code — Netlify deploy config
 #
 # Constitution v1.1.0:

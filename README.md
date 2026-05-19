@@ -3,11 +3,17 @@
 A 2D pixel-art platformer built as a learning project — equal parts game
 programming fundamentals and [Spec-Driven Development][sdd] practice.
 
-**Status:** pre-MVP. No playable build yet. Implementation is on the
-[`001-vertical-slice`][slice] branch.
+**Status:** pre-MVP. The vertical slice is in progress on the
+[`001-vertical-slice`][slice] branch; the engine scaffolding renders
+but the playable level is still being built.
 
-**Live demo:** _not yet deployed — link will land here after the
-vertical slice ships._
+**Play the latest build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net>
+
+The site auto-deploys from the active development branch via Azure Static
+Web Apps. Every push to a non-default branch also produces a per-branch
+preview URL discoverable from the GitHub Actions run summary. See
+[`specs/002-shipping-infrastructure/`][infra-spec] for the pipeline
+spec.
 
 ## What's interesting here
 
@@ -66,3 +72,4 @@ sources and licenses are recorded in `public/assets/CREDITS.md` (forthcoming).
 [tasks]: specs/001-vertical-slice/tasks.md
 [learning]: docs/learning/README.md
 [setup]: docs/learning/00-setup-from-zero.md
+[infra-spec]: specs/002-shipping-infrastructure/
