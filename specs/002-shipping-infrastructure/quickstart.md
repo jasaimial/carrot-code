@@ -27,38 +27,45 @@ docs/learning/HANDOVER.md                         # Updated to include the live 
 netlify.toml                                      # Kept; updated with top-of-file "deploy via Azure SWA" note
 ```
 
-## 0. The one bit that requires the Azure portal
+## 0. Provision the SWA + GitHub integration (one CLI call)
 
-**This step is NOT reproducible from committed files. It is a one-time UI action that produces the SWA resource and the GitHub deployment-token secret.**
+**This step IS reproducible from committed files.** The provisioning lives in [`infra/provision-swa.ps1`](../../infra/provision-swa.ps1); a fresh clone with `az login` + `gh auth login` (workflow scope) can re-create the production resource and wire up the GitHub deployment-token secret with a single command.
 
-Once done, every subsequent maintainer and every future re-clone of this repo gets a working deploy automatically from the committed workflow + config files — no Azure portal access is required after that, unless the resource is deleted or the token must be rotated.
+(Earlier drafts of this spec mis-claimed that the SWA + GitHub integration required the Azure portal. The Azure CLI's `az staticwebapp create --source <repo> --token <gh-token>` in fact does the same OAuth handshake the portal triggers — it commits the deploy workflow file to the repo and writes the deployment-token secret via the GitHub API on our behalf. See [research.md Q10](./research.md#q10-the-tone-of-correction--why-the-portal-only-claim-for-t103-was-wrong) for the discovery story; the `infra/provision-swa.ps1` script wraps this command with the discipline of FR-022 sensitive-identifier handling.)
 
-Steps (Azure portal, current as of 2026-05):
+From repo root:
 
-1. Open <https://portal.azure.com> → **Static Web Apps** → **Create**.
-2. **Subscription**: Visual Studio Enterprise (or whichever subscription is currently active on `az account show`).
-3. **Resource group**: `rg-carrot-code` (create if it doesn't exist, in `westus2`).
-4. **Name**: `carrot-code` (or `carrot-code-swa` if the first name is unavailable globally). Lowercase, hyphenated.
-5. **Plan type**: **Free**.
-6. **Region**: `westus2`. If the create dialog reports the Free SKU isn't available in `westus2`, fall back to `centralus`. Do NOT use `westus3` (not Free-supported). Do NOT switch to Standard.
-7. **Deployment source**: **GitHub**. Sign in if prompted.
-8. **Organization**: `jasaimial`. **Repository**: `carrot-code`. **Branch**: `001-vertical-slice` (this is the *production branch* during slice development; we'll move it to `main` after the slice merges — FR-004).
-9. **Build details**: **Build Presets** → **Custom**. **App location**: `/`. **Api location**: leave empty. **Output location**: `dist`.
-10. **Review + create** → **Create**.
+```powershell
+./infra/provision-swa.ps1
+```
 
-**What Azure does behind the scenes when you click Create**:
+Default parameters match this spec (subscription = `Visual Studio Enterprise Subscription`, RG = `rg-carrot-code`, region = `westus2`, name = `carrot-code`, Sku = `Free`, branch = `001-vertical-slice`). Override per the script's `-AppName` / `-Location` / etc. parameters if defaults collide (name globally taken, region rejects Free SKU).
 
-- Provisions the SWA resource in `rg-carrot-code`.
-- Generates a deployment token.
-- Creates a GitHub repo secret named `AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM>` with the token as its value. **You do not see this value.**
-- Commits a workflow file at `.github/workflows/azure-static-web-apps-<random>.yml` to the configured branch (`001-vertical-slice`).
-- Kicks off the first run.
+**Prerequisites the script verifies before doing anything**:
 
-**Verification immediately after Create**:
+1. Azure CLI is logged into the expected subscription (verified by NAME, not ID).
+2. GitHub CLI is authed with the `workflow` scope (so Azure can push the deploy workflow file via the GitHub API).
 
-- The Azure portal → SWA → **Overview** shows the public URL.
-- The GitHub repo → **Actions** tab shows the auto-generated workflow has started running.
-- The GitHub repo → **Settings → Secrets and variables → Actions** shows the new `AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM>` secret (you see the name; you do not see the value).
+If either fails, the script aborts with a specific fix message before any resource is created.
+
+**What the script does (steps numbered for verification)**:
+
+1. Confirms the active `az` subscription matches the expected name.
+2. Confirms `gh auth status` reports the `workflow` scope.
+3. `az group create --name rg-carrot-code --location westus2` (idempotent; succeeds if RG exists).
+4. `az staticwebapp show` to check whether the SWA already exists (skip if so).
+5. If absent: `az staticwebapp create --name carrot-code --resource-group rg-carrot-code --location westus2 --sku Free --source https://github.com/jasaimial/carrot-code --branch 001-vertical-slice --token (gh auth token) --app-location / --output-location dist`. Azure provisions the resource, commits the workflow file, writes the secret.
+6. `az staticwebapp show --query defaultHostname -o tsv` captures the public URL.
+7. `gh secret list` confirms the deployment-token secret landed (value not exposed).
+8. Prints summary: public URL + secret name. Nothing else.
+
+**Verification immediately after the script returns**:
+
+- The terminal output ends with `=== Provisioning complete ===` and a `https://<app>-<random>.<region>.azurestaticapps.net` URL.
+- The GitHub repo → **Actions** tab shows the new auto-generated workflow run (may not yet be green; that's T105/T106/T107).
+- The GitHub repo → **Settings → Secrets and variables → Actions** shows the new `AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM>` secret (name visible, value hidden).
+
+**Re-running the script**: idempotent. If the SWA already exists, the create step is skipped and only the capture/verify steps run. To force a clean re-provision, delete the existing resource first (`az staticwebapp delete --name carrot-code --resource-group rg-carrot-code --yes`) and re-run.
 
 ## 1. Review the auto-generated workflow
 

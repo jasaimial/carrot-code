@@ -216,3 +216,43 @@ None of these apply to v0. All are pre-conditions for a future "graduate to Key 
 - **No vault at all; commit the token to the repo** — obviously rejected. Listed only because it has happened in real projects and the constitution principle exists to prevent it.
 
 **Rejected because**: the "shouldn't this be in a vault?" instinct is correct, but GitHub Actions Secrets is structurally a vault for the one secret that exists in this feature. Adding Key Vault would add hops, not protection, at our scale.
+
+## Q10: The tone of correction — why the "portal-only" claim for T103 was wrong
+
+**Decision**: Document this discovery so future readers don't repeat the same misread of `az staticwebapp create`. T103 is fully agent-executable via `az staticwebapp create --source <repo-url> --token <gh-pat>`; the script `infra/provision-swa.ps1` wraps it.
+
+**What the original tasks.md T103 (and an early draft of this research.md) asserted**: "the CLI command `az staticwebapp create --source <repo>` does NOT install the deploy workflow nor wire up the secret — the Azure portal's GitHub-connect flow is the only path." This was wrong.
+
+**What `az staticwebapp create` actually does when given `--source <github-repo-url>` and `--token <gh-pat>`**:
+
+- Provisions the SWA resource in the named RG (the obvious part).
+- Uses the supplied GitHub PAT to call the GitHub API on the caller's behalf to:
+  1. **Commit** the deploy workflow file `.github/workflows/azure-static-web-apps-<random>.yml` to the configured branch.
+  2. **Create** the GitHub repo secret `AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM>` with the deployment token Azure mints.
+- The deployment-token value is round-tripped from Azure to GitHub by az; **it never enters the caller's process memory** beyond the brief act of being passed in the API request body. Functionally identical to the portal's behaviour.
+
+**Confirmed by `az staticwebapp create --help`**:
+
+```
+--token -t  : A user's GitHub or Azure Dev Ops repository token. This is used
+              to create the Github Action or Dev Ops pipeline.
+```
+
+The `--login-with-github` flag is an alternate form that runs an interactive OAuth device-code flow to mint a PAT on the spot; `--token` accepts a pre-existing PAT (we use `gh auth token` to read the gh CLI's existing one, avoiding a separate PAT). Either form achieves the same end state.
+
+**Why the original wrong claim**: spec authoring conservatism. The planning subagent treated "the portal does this magic" as the safe assumption because it didn't independently verify the CLI's behaviour, and the tasks-authoring subagent inherited that assumption. The maintainer caught it the moment the spec asked for a manual portal click in a workflow they recognised as automatable. **The fix is in the artifacts** (this Q10, the rewritten T103, the new `infra/provision-swa.ps1`); the lesson is: when a spec asks for manual steps that "feel like" something a CLI could do, the agent SHOULD verify CLI capability with `<command> --help` before accepting the spec's claim.
+
+**Sensitive-identifier discipline preserved**:
+
+- `infra/provision-swa.ps1` reads the GitHub PAT via `gh auth token` at runtime; the value never persists to disk.
+- The PAT is passed to `az` as a process argument (visible to local `/proc` for the duration of one CLI invocation; not visible to other processes after `az` exits).
+- The deployment token Azure mints round-trips into GitHub Secrets via az's internal HTTP call; it never enters PowerShell's variable scope.
+- The script's terminal output prints only the `defaultHostname` (the public product URL) and the secret NAME (not value). Subscription IDs, tenant IDs, ARM paths, token values are explicitly excluded by `--query`-narrowing in every script call.
+
+**Alternatives considered for the corrected T103**:
+
+- **Keep T103 portal-required.** Rejected: it's a real workflow regression to leave a portal step in place when a CLI equivalent exists and the spec's whole point is reproducibility.
+- **Use `--login-with-github` instead of `--token (gh auth token)`.** Equivalent end state; requires the maintainer to click through a one-time device-code OAuth flow even when `gh` is already authed. `gh auth token` re-use is the lower-friction path; the maintainer already trusts `gh` enough to push code with it.
+- **Pin a separate PAT specifically for SWA provisioning** (manually created at GitHub.com → Settings → Tokens → Generate). Rejected: an additional credential to rotate and protect, with no security benefit over the `gh` CLI's existing token at solo-project scale.
+
+**Rejected because**: agent-executable is strictly better than portal-required for this feature, the CLI capability exists, and the script's discipline preserves every Constitution XII / FR-022 guarantee the portal-flow would have provided.
