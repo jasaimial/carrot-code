@@ -36,6 +36,7 @@ export const EN = {
   "dev.levelStub": "LevelScene stub\n(Tiled-driven level renderer lands in T034)",
   "dev.uiStub": "UIScene stub (HUD/touch/dialog lands later)",
   "dev.gameOverStub": "GameOverScene stub\n(end-of-run UI lands in T036)",
+  "dev.fpsLabel": "FPS",
 
   // --- HUD labels (T035 / T043) -------------------------------------------
   "hud.carrots": "Carrots",

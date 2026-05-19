@@ -1,40 +1,54 @@
 /**
- * Phaser game bootstrap. Builds the game config and starts the scene graph.
+ * Phaser game bootstrap (T027). Builds the game config and starts the scene
+ * graph.
  *
  * Per the project structure in
  *   specs/001-vertical-slice/plan.md#project-structure
  * scenes are registered here once and the LevelScene receives its level via
  * `scene.start("LevelScene", { levelId: "level-01" })`.
  *
- * Real scene implementations land in Phase 3 (T032-T036). Until then each
- * scene is the smallest possible stub so `npm run dev` opens a visible page.
+ * Renderer is WebGL (T027 requirement). The DOM container is disabled
+ * (`dom.createContainer: false`) because no scene uses Phaser's DOM-element
+ * support in v0 - all UI is canvas-drawn for crisp pixel rendering.
+ *
+ * Dev-mode behaviour (gated on `import.meta.env.DEV`):
+ *   - Arcade-physics debug draw is on (Phaser draws colliders).
+ *   - `scene.registry.devMode` is `true`, which `attachFpsOverlay`
+ *     reads to decide whether to render the FPS overlay (Principle X).
+ *
+ * Real scene implementations land in Phase 3 (T032-T036). Until then
+ * each scene is the smallest possible stub so `npm run dev` opens a
+ * visible page.
  */
 
 import Phaser from "phaser";
 
 import { PALETTE_HEX } from "./config/palette.js";
+import { PHYSICS } from "./config/physics.js";
 import { BootScene } from "./scenes/BootScene";
-import { MenuScene } from "./scenes/MenuScene";
-import { LevelScene } from "./scenes/LevelScene";
-import { UIScene } from "./scenes/UIScene";
 import { GameOverScene } from "./scenes/GameOverScene";
+import { LevelScene } from "./scenes/LevelScene";
+import { MenuScene } from "./scenes/MenuScene";
+import { UIScene } from "./scenes/UIScene";
 
 /**
  * The complete list of scenes registered with the Phaser game, in boot order.
- * Adding a new scene means adding it here and to the array in `startGame`.
+ * Adding a new scene means adding it here.
  */
 const SCENES = [BootScene, MenuScene, LevelScene, UIScene, GameOverScene] as const;
 
 /**
  * Mount and start the Phaser game inside the given DOM element.
  *
- * @param parent the DOM element the game canvas will attach to.
- * @returns the Phaser.Game instance (mostly for tests; production code does
+ * @param parent - The DOM element the game canvas will attach to.
+ * @returns The Phaser.Game instance (mostly for tests; production code does
  *   not need to interact with it directly).
  */
 export function startGame(parent: HTMLElement): Phaser.Game {
   return new Phaser.Game({
-    type: Phaser.AUTO,
+    // T027: WebGL renderer (not AUTO). Pixel-art benefits from the
+    // explicit WebGL pipeline + roundPixels combination.
+    type: Phaser.WEBGL,
     parent,
 
     // Crisp pixel-art rendering. roundPixels avoids sub-pixel sprite jitter.
@@ -52,20 +66,39 @@ export function startGame(parent: HTMLElement): Phaser.Game {
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
 
+    // No Phaser DOM-element container in v0 (all UI is canvas-drawn).
+    dom: {
+      createContainer: false,
+    },
+
     physics: {
       default: "arcade",
       arcade: {
-        // Tuning constants land in src/config/physics.ts (T018).
-        // Until then, use Phaser's defaults so the game can start.
-        gravity: { x: 0, y: 0 },
+        // World gravity from src/config/physics.ts (Principle III).
+        gravity: { x: 0, y: PHYSICS.gravityYPxPerSec2 },
+        // Arcade-physics debug draw is on in dev only (Principle X).
         debug: import.meta.env.DEV,
       },
     },
 
-    // FPS overlay in dev only (Constitution Principle X).
+    // Phaser game-loop tuning. The visual FPS overlay is rendered by
+    // `attachFpsOverlay(scene)` from src/systems/debug-overlay.ts; this
+    // block is only the loop config.
     fps: {
       forceSetTimeOut: false,
       target: 60,
+    },
+
+    callbacks: {
+      /**
+       * Runs once after Phaser has fully booted. Used to seed the
+       * scene registry with global flags (devMode) every scene reads.
+       *
+       * @param game - The Phaser game instance.
+       */
+      postBoot: (game: Phaser.Game): void => {
+        game.registry.set("devMode", import.meta.env.DEV);
+      },
     },
 
     // Scene order: Boot runs first, then transitions to Menu (which the

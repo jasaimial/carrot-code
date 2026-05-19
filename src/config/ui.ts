@@ -62,4 +62,14 @@ export const UI = {
   // HUD text color now lives in src/config/palette.ts (PALETTE_HEX.textCream)
   // per Constitution Principle III: single source of truth per concern.
   // Import it directly from palette.ts in scenes that render text.
+
+  // --- Dev FPS overlay (visible in dev only; Constitution Principle X) --
+  /** FPS overlay inset from the top edge. */
+  fpsOverlayTopPx: 8,
+  /** FPS overlay inset from the left edge. */
+  fpsOverlayLeftPx: 8,
+  /** FPS overlay font size in CSS pixels. */
+  fpsOverlayFontSizePx: 12,
+  /** Update interval for the FPS overlay text. */
+  fpsOverlayRefreshMs: 250,
 } as const;

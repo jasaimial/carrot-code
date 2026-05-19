@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-18
-**Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) (the slice) and [`002-shipping-infrastructure`](https://github.com/jasaimial/carrot-code/pull/2) (the deploy pipeline)
-**Current task:** Spec 002 Phases 1–4 done; **T119–T122** in flight (this commit). Next coding session resumes spec 001 at **T021** (level-loader tests).
+**Last updated:** 2026-05-18 (Phase 2 complete)
+**Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) (the slice) and `main` (CI-gated, currently lags the slice)
+**Current task:** Spec 002 done. **Spec 001 Phase 2 (Foundational) COMPLETE** as of this commit. Next coding session resumes at **T029** (author `src/data/levels/level-01.tmj` in Tiled).
 **Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice` via Azure SWA Free; preview URLs spawn for every other branch / PR)
-**Local dev:** `npm run dev` → http://localhost:5173 → forest-green page with "BootScene stub" text
+**Local dev:** `npm run dev` → http://localhost:5173 → forest-green page with "BootScene stub" text + dev FPS overlay top-left
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -19,10 +19,13 @@
 ## TL;DR — where we are
 
 - **Phase 1 (Setup) complete** — toolchain, CI, deploy config, README.
-- **Phase 2 (Foundational) in progress** — T012 (scene stubs), T013–T017
-  (typed contracts in `src/types/`), T018 (tuning constants in
-  `src/config/`), and T019–T020 (first real service: SaveService with
-  7 unit tests) all landed. First green tests in `tests/unit/`.
+- **Phase 2 (Foundational) COMPLETE** — every prerequisite that every
+  user story depends on is on disk, typed, and tested. 55 unit tests
+  across 6 files; all five gates green (typecheck / lint / format /
+  test / build); CI green; live build deploys from the branch.
+- **Phase 3 (US1, P1 MVP-floor) next** — starts at **T029**: author
+  `level-01.tmj` in Tiled (Kenney CC0 tileset; record exact pack name
+  in `public/assets/CREDITS.md`).
 - **Repo is public**, CI is green on PR #1, branch protection on `main`
   requires CI green. Principle VIII is mechanically enforced.
 
@@ -36,7 +39,7 @@ npm install                 # idempotent; needed only if node_modules is gone
 npm run dev                 # opens dev server at http://localhost:5173
 
 # In another terminal:
-npm test                    # vitest (currently 0 tests; pass with passWithNoTests)
+npm test                    # vitest (55 unit tests across 6 files)
 npm run typecheck           # tsc --noEmit
 npm run lint                # eslint
 npm run format:check        # prettier --check
@@ -64,7 +67,9 @@ Constitution Principle VIII is enforced now.
 ```
 src/
 ├── main.ts                ← Vite entry; mounts Phaser into #game; registers SW
-├── game.ts                ← Phaser game config + scene registration
+├── game.ts                ← T027 — full Phaser config (WebGL, pixelArt, arcade
+│                            with PHYSICS.gravityY, FIT scale, dom.createContainer
+│                            disabled, postBoot registers `devMode` on registry)
 ├── vite-env.d.ts          ← Vite + vite-plugin-pwa type refs
 ├── types/                 ← T013–T017 — typed contracts (no runtime)
 │   ├── runtime-mode.ts    ←   RuntimeMode string-literal union
@@ -72,22 +77,34 @@ src/
 │   ├── entity-config.ts   ←   EnemyConfig | CarrotConfig | PowerupConfig
 │   ├── narrator-beat.ts   ←   NarratorBeat + NarratorTrigger union
 │   └── level.ts           ←   LevelData (re-exports narrator types)
-├── config/                ← T018 + T018a — tuning constants (Principle III)
+├── config/                ← T018 + T018a + T027 — tuning constants (Principle III)
 │   ├── physics.ts         ←   gravity, max fall speed, friction
 │   ├── hero.ts            ←   move/jump, coyote+buffer, lives, hit i-frames
 │   ├── enemy.ts           ←   default patrol speed, contact knockback
 │   ├── powerups.ts        ←   invincibility duration + stack mode + blink
-│   ├── ui.ts              ←   HUD positions, dialog timings, fonts
+│   ├── ui.ts              ←   HUD positions, dialog timings, fonts, FPS overlay
 │   └── palette.ts         ←   T018a — PALETTE_HEX + PALETTE color tokens
 ├── i18n/                  ← T035a — translation seam (Principle III)
 │   ├── en.ts              ←   EN catalog + I18nKey + I18nCatalog types
 │   └── index.ts           ←   t() lookup, setLocale(), getActiveCatalog()
-├── services/              ← T020 — first real I/O service (Principle XI)
-│   └── save-service.ts    ←   SaveService interface + LocalStorageSaveService
-│                              StorageLike injection, clock injection,
-│                              SaveStateInput (T020b), SaveQuotaExceededError
+├── services/              ← T020, T022, T023 — I/O seams (Principle XI)
+│   ├── save-service.ts    ←   SaveService interface + LocalStorageSaveService
+│   │                          StorageLike injection, clock injection,
+│   │                          SaveStateInput (T020b), SaveQuotaExceededError
+│   ├── level-loader.ts    ←   T022 — pure loadLevel(tiledJson, levelId,
+│   │                          levelName, assetBudgetBytes): LevelData;
+│   │                          LevelLoadError on invariant violations
+│   └── asset-service.ts   ←   T023 — AssetService + AssetDeclaration;
+│                              KennyAssetService (assets array empty in v0)
+├── systems/               ← T024–T026 + T027 — pure logic + debug overlay
+│   ├── coyote-time.ts     ←   CoyoteTimer state machine (8 tests)
+│   ├── jump-buffer.ts     ←   JumpBuffer (8 tests)
+│   ├── physics-helpers.ts ←   clamp, pointInRect, pointDistanceSq,
+│   │                          nextPatrolDirection (18 tests)
+│   └── debug-overlay.ts   ←   T027 — attachFpsOverlay(scene) gated on
+│                              registry `devMode`. Production no-op.
 └── scenes/
-    ├── BootScene.ts       ← stub (real: T032)
+    ├── BootScene.ts       ← stub + attachFpsOverlay (real impl: T032)
     ├── MenuScene.ts       ← stub (stays a stub for v0)
     ├── LevelScene.ts      ← stub (real: T034)
     ├── UIScene.ts         ← stub (real: T035 / T043 / T049)
@@ -95,57 +112,65 @@ src/
 
 tests/
 └── unit/
-    ├── save-service.test.ts  ← T019/T020b — 7 tests (6 contract cases
-    │                              + clear()). Storage injection fake;
-    │                              no jsdom; 100% pass.
-    └── i18n.test.ts          ← T035a — 3 tests (default catalog,
-                                  setLocale, getActiveCatalog). Same
-                                  reset-in-afterEach pattern.
+    ├── save-service.test.ts      ← T019/T020b — 7 tests
+    ├── i18n.test.ts              ← T035a — 3 tests
+    ├── level-loader.test.ts      ← T021 — 11 tests (4 invariants + happy
+    │                                paths + extensibility safety nets)
+    ├── coyote-time.test.ts       ← T024 — 8 tests
+    ├── jump-buffer.test.ts       ← T025 — 8 tests
+    └── physics-helpers.test.ts   ← T026 — 18 tests
+                                    Total: 55 tests across 6 files.
 
-(src/systems/, src/entities/, src/data/ — still empty; populated
- through T021–T026 and the user-story phases.)
+(src/entities/, src/data/, public/assets/ — still empty; populated by
+ the user-story phases starting at T029.)
 ```
 
 ## What's NOT on disk yet (and why that's fine)
 
-- **No level loader** (`src/services/level-loader.ts`) — lands T021/T022
-  next (test-first). Same pattern as SaveService: tests RED first, then
-  implementation GREEN.
-- **No AssetService** (`src/services/asset-service.ts`) — lands T023.
-  Shape + empty `assets` array; entries get filled in by user stories.
-- **No pure systems** (`src/systems/*`) — lands T024–T026 (coyote-time,
-  jump-buffer, physics-helpers), each test-first.
-- **No assets** (`public/assets/`) — Phase 3 (US1, T029+).
-- **No live deploy URL** — Netlify config exists ([netlify.toml](../../netlify.toml))
-  but T058 actually wires the integration. Until then, dev is local only.
+- **No real level** (`src/data/levels/level-01.tmj`) — lands T029. Until
+  then BootScene's stub text is what `npm run dev` shows. The
+  `LevelLoadError` test fixtures live in `tests/unit/level-loader.test.ts`
+  and exercise the loader without any on-disk .tmj.
+- **No `LevelRegistry`** (`src/data/levels/index.ts`) — T030.
+- **No hero entity** (`src/entities/hero.ts`) — T033. The coyote-time +
+  jump-buffer primitives are ready; the hero wires them up.
+- **No assets** (`public/assets/`) — Phase 3 (US1, T029+). `KennyAssetService.assets`
+  is intentionally an empty array until US1 + US2 fill it in.
 - **Config values are placeholders** — the numbers in `src/config/*.ts`
   are reasonable starting points, NOT playtested. T060 (polish) is the
   retune pass; per-task playtest checklists (T037 / T046 / T051) feed it.
 
-## Next 3 actions (Phase 2 services & systems)
+## Next 3 actions (Phase 3, US1 — P1 MVP-floor)
 
-With SaveService done, the same test-first pattern applies to the next
-three slots:
+Phase 2 is complete: every prerequisite that every user story depends
+on is on disk, typed, and tested. The next coding session opens US1:
 
-1. **T021 + T022** — level loader, same TDD shape as T019/T020.
-   `tests/unit/level-loader.test.ts` covering the four loader invariants
-   from [contracts/level-format.md](../../specs/001-vertical-slice/contracts/level-format.md#loader-contract)
-   (RED) → `src/services/level-loader.ts`: pure
-   `loadLevel(tiledJson, levelId, levelName, assetBudgetBytes): LevelData`
-   + `LevelLoadError` (GREEN). Two commits, pushed together.
-2. **T023** — `src/services/asset-service.ts`: `AssetService` interface +
-   `AssetDeclaration` type + `KennyAssetService` with an empty `assets`
-   array. No tests needed (shape + empty data; user stories fill it in).
-3. **T024 (or T025 or T026)** — first pure system, test-first within the
-   file pair. Pick coyote-time, jump-buffer, or physics-helpers. All
-   three are independent; doing them in this order matches the order
-   they're consumed by the hero entity (T033).
+1. **T029** — Author `src/data/levels/level-01.tmj` in **Tiled** (the
+   tool, not code): a small horizontal level with at least one
+   elevated platform (FR-009), a `spawn` point object, a rectangular
+   `end` trigger, ground tiles, and a CC0 tileset from Kenney.nl.
+   Record the **exact pack name + download date** in
+   `public/assets/CREDITS.md` per Principle VII (asset license
+   provenance). This step is the only one in Phase 3 that benefits
+   from being driven by the maintainer (level design judgement).
+2. **T030** — `src/data/levels/index.ts` — typed `LevelRegistry`
+   exporting `{ "level-01": () => import("./level-01.tmj?url") }`.
+   One-liner per new level.
+3. **T031 + T032** — Drop a Kenney CC0 hero spritesheet under
+   `public/assets/sprites/hero/` + tileset under
+   `public/assets/tilemaps/`; register both in
+   `KennyAssetService.assets`; update CREDITS.md. Then implement
+   `BootScene` (T032): iterate `assetService.assets`, dispatch on
+   `.type`, transition to `LevelScene` with `{ levelId: "level-01" }`.
 
-After T026, **T027 rewires `game.ts`** to register the scenes properly
-with the FPS overlay in dev. Then Phase 2 is done and US1 begins.
+After T032 the game can actually load assets and transition; T033
+(hero entity, wired to coyote-time + jump-buffer), T034 (LevelScene
+data-driven), T035 (UIScene touch controls + landscape lock), T036
+(GameOverScene), T037 (playtest checklist) complete US1.
 
-Natural stopping points: after T022 (level loader green), after T026
-(all pure logic covered), after T027 (Phase 2 checkpoint).
+Natural stopping points: after T029/T030 (level data + registry), after
+T032 (BootScene actually loads things), after T034 (hero can move on
+the level), after T037 (US1 done, P1 MVP-floor demoable).
 
 ## Design ground rules (apply to every new piece of code or content)
 
@@ -210,8 +235,8 @@ These can stay open until they bite:
 - **Phaser bundle size warning** in CI build output (1.3 MB). Address
   with code-splitting in the polish phase or when actual gameplay assets
   push us toward a payload budget concern.
-- **README live demo line** is a placeholder until T058 (Netlify connect).
-  Update after first deploy.
+- **README live demo line** points at the Azure SWA URL since spec 002
+  shipped. Re-verify after every infra change.
 - **CONTRIBUTING.md / CODE_OF_CONDUCT.md / issue templates** — not needed
   until the first stranger opens an issue or PR. See the
   2026-05-17-constitution-v1.1.0 journal entry for the Principle XII
@@ -221,17 +246,17 @@ These can stay open until they bite:
   warning is informational; doesn't break install or play. If the
   warning becomes annoying before T052, comment out the icon block in
   [vite.config.ts](../../vite.config.ts) temporarily.
-- **Constitution v1.1.1 amendment proposal pending sign-off.** Add to
-  Principle III: "All player-visible text via `t()`; all colors via
-  `PALETTE_HEX` / `PALETTE`." Drafted but not ratified. See
-  [.specify/memory/constitution.md](../../.specify/memory/constitution.md)
-  Sync Impact Report once landed.
+- **Constitution v1.1.1 ratified 2026-05-18.** Principle III now
+  formally requires all player-visible text via `t()` and all colors
+  via `PALETTE_HEX` / `PALETTE`. Parse-time-only surfaces (index.html,
+  vite.config.ts) carry the literal with a `= PALETTE_HEX.<token>`
+  comment so the cross-reference stays grep-able.
 
 ## How to pick up in a fresh chat
 
 If you're a new agent reading this:
 
-1. Read [.specify/memory/constitution.md](../../.specify/memory/constitution.md) (the rules; v1.1.0).
+1. Read [.specify/memory/constitution.md](../../.specify/memory/constitution.md) (the rules; v1.1.1).
 2. Read [specs/001-vertical-slice/spec.md](../../specs/001-vertical-slice/spec.md) (what we're building).
 3. Read [specs/001-vertical-slice/plan.md](../../specs/001-vertical-slice/plan.md) (how we're building it; Constitution Check at the bottom).
 4. Read [specs/001-vertical-slice/tasks.md](../../specs/001-vertical-slice/tasks.md) and find the first unchecked task.
