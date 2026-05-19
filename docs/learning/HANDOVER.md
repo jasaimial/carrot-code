@@ -281,3 +281,31 @@ The agent's persistent memory (across chats) records:
   reminder we've been silently ignoring all session is documented here.
   Future agents picking up the project should expect to see it and not
   derail.
+
+### Project-specific subagents
+
+- **`carrot-code-reviewer`** — independent ("judiciary") code/PR review
+  pass codifying Constitution v1.1.1 + the design ground rules in this
+  file as mechanical checks. Defined at
+  [.github/agents/carrot-code-reviewer.agent.md](../../.github/agents/carrot-code-reviewer.agent.md).
+  Read-only; reports findings at four severity levels (critical /
+  high / medium / low); does not modify files.
+
+  **When to invoke**: before merging any non-trivial PR, or whenever the
+  maintainer wants an independent pair-of-eyes pass that wasn't
+  authored by the same session that wrote the code. Three modes:
+  - `mode: diff` + git-ref pair (e.g. `origin/main...HEAD`) — review
+    a changeset
+  - `mode: files` + a list of paths — review specific files
+  - `mode: spec` + a `specs/NNN-*/` dir — review the spec/plan/tasks
+    set as an internally consistent unit
+
+  **Trigger phrases the orchestrating agent should recognise**:
+  "review this PR", "run the reviewer agent", "independent check on
+  the 00X spec", "pair of eyes on these changes". Surface as a
+  `runSubagent` call with `agentName: "carrot-code-reviewer"`.
+
+  **Use after 002 ships**, per the v1.1.2 amendment proposal:
+  any plan with new infrastructure or new dependencies SHOULD invoke
+  this reviewer (in addition to `/speckit.analyze`) before
+  implementation begins.
