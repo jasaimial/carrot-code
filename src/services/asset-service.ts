@@ -22,16 +22,12 @@
 // -----------------------------------------------------------------------------
 
 /**
- * Declarative description of a single Phaser asset. Authoring rule:
- * every key referenced anywhere in the codebase (Tiled custom
- * properties, entity configs, HUD, etc.) MUST appear in exactly one
- * `AssetDeclaration` on the active `AssetService`.
+ * Common fields on every asset declaration. The discriminated union
+ * {@link AssetDeclaration} adds per-type fields on top of these.
  */
-export interface AssetDeclaration {
+interface AssetDeclarationBase {
   /** Phaser asset key. Unique across the entire game. */
   readonly key: string;
-  /** Which Phaser loader the BootScene should dispatch to. */
-  readonly type: "image" | "spritesheet" | "tilemap-json";
   /** URL relative to `public/` (e.g. `assets/hero/idle.png`). */
   readonly url: string;
   /**
@@ -42,6 +38,53 @@ export interface AssetDeclaration {
    */
   readonly approxBytes: number;
 }
+
+/**
+ * A single static image. Use for tileset images (set `tilesetName` to
+ * match the `name` field of the matching tileset in the level's `.tmj`)
+ * and for one-off UI / decoration sprites.
+ */
+export interface ImageAssetDeclaration extends AssetDeclarationBase {
+  /** @inheritdoc */
+  readonly type: "image";
+  /**
+   * Set when this image is the source for a Tiled tileset. The value
+   * must equal the `name` field on the matching `tilesets[]` entry in
+   * the level's `.tmj`. `LevelScene` looks up declarations by this
+   * field when calling `map.addTilesetImage()`.
+   *
+   * Leave unset for non-tileset images.
+   */
+  readonly tilesetName?: string;
+}
+
+/**
+ * A regularly-gridded spritesheet (single image cut into uniform
+ * frames). Phaser indexes frames left-to-right top-to-bottom starting
+ * at 0; the chosen frame is set on the sprite at creation time
+ * (e.g. `this.add.sprite(x, y, key, frameIndex)`).
+ */
+export interface SpritesheetAssetDeclaration extends AssetDeclarationBase {
+  /** @inheritdoc */
+  readonly type: "spritesheet";
+  /** Frame width in source pixels. */
+  readonly frameWidth: number;
+  /** Frame height in source pixels. */
+  readonly frameHeight: number;
+}
+
+/**
+ * Declarative description of a single Phaser asset. Authoring rule:
+ * every key referenced anywhere in the codebase (entity configs,
+ * HUD, etc.) MUST appear in exactly one `AssetDeclaration` on the
+ * active `AssetService`.
+ *
+ * Level `.tmj` files are NOT declared here — they live in the
+ * separate {@link ../data/levels/index.ts | LevelRegistry} because
+ * levels are keyed by `levelId`, not by asset key, and are
+ * lazy-loaded via dynamic import.
+ */
+export type AssetDeclaration = ImageAssetDeclaration | SpritesheetAssetDeclaration;
 
 /**
  * Read-only registry of every asset the game preloads. Scenes consume
@@ -100,9 +143,47 @@ export class KennyAssetService implements AssetService {
 }
 
 /**
- * The shipped v0 asset list. Intentionally empty — entries land per
- * user story so we never ship a file the game doesn't actually use
- * (Principle X). Authoring rule: append to this array when adding a
- * new sprite; never reach for URLs inline in scenes.
+ * The shipped v0 asset list. Entries land per user story so we never
+ * ship a file the game doesn't actually use (Principle X). Authoring
+ * rule: append to this array when adding a new sprite or tileset;
+ * never reach for URLs inline in scenes.
+ *
+ * Naming convention: `<category>-<pack-slug>-<asset-name>` per
+ * `public/assets/CREDITS.md` § Asset organization convention.
  */
-const ASSETS: readonly AssetDeclaration[] = Object.freeze([]);
+const ASSETS: readonly AssetDeclaration[] = Object.freeze([
+  // -------------------------------------------------------------------------
+  // T031 — Kenney Pixel Platformer (CC0, pack v1.2 downloaded 2026-05-18).
+  // Provenance: public/assets/CREDITS.md
+  // -------------------------------------------------------------------------
+
+  /**
+   * Terrain tileset shared by every level that uses Kenney Pixel
+   * Platformer base tiles. `tilesetName` matches the `name` field on
+   * the matching `tilesets[]` entry in `src/data/levels/level-01.tmj`
+   * so `LevelScene` can bind it via `map.addTilesetImage()`.
+   */
+  {
+    key: "tiles-pixel-platformer-base",
+    type: "image",
+    url: "assets/tilemaps/kenney-pixel-platformer/tilemap_packed.png",
+    tilesetName: "pixel-platformer-tiles",
+    approxBytes: 5913,
+  },
+
+  /**
+   * Character spritesheet (27 distinct characters laid out 9×3 at
+   * 24×24 px per cell, no spacing). For v0 the hero uses frame 0
+   * (top-left character) as a placeholder pending a custom carrot
+   * recolor. Each cell is a different character, not animation
+   * frames of one character — see CREDITS.md.
+   */
+  {
+    key: "hero-pixel-platformer-character-a",
+    type: "spritesheet",
+    url: "assets/sprites/kenney-pixel-platformer/tilemap-characters_packed.png",
+    frameWidth: 24,
+    frameHeight: 24,
+    approxBytes: 1990,
+  },
+]);

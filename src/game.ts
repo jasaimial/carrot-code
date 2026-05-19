@@ -25,11 +25,12 @@ import Phaser from "phaser";
 
 import { PALETTE_HEX } from "./config/palette.js";
 import { PHYSICS } from "./config/physics.js";
-import { BootScene } from "./scenes/BootScene";
+import { BootScene, REGISTRY_KEY_ASSET_SERVICE } from "./scenes/BootScene";
 import { GameOverScene } from "./scenes/GameOverScene";
 import { LevelScene } from "./scenes/LevelScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { UIScene } from "./scenes/UIScene";
+import { KennyAssetService } from "./services/asset-service.js";
 
 /**
  * The complete list of scenes registered with the Phaser game, in boot order.
@@ -92,12 +93,15 @@ export function startGame(parent: HTMLElement): Phaser.Game {
     callbacks: {
       /**
        * Runs once after Phaser has fully booted. Used to seed the
-       * scene registry with global flags (devMode) every scene reads.
+       * scene registry with shared singletons (Principle XI: services
+       * live on the registry, not on globals) and global flags every
+       * scene reads (`devMode`).
        *
        * @param game - The Phaser game instance.
        */
       postBoot: (game: Phaser.Game): void => {
         game.registry.set("devMode", import.meta.env.DEV);
+        game.registry.set(REGISTRY_KEY_ASSET_SERVICE, new KennyAssetService());
       },
     },
 

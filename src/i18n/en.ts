@@ -34,9 +34,13 @@ export const EN = {
   "dev.bootStub": "BootScene stub\n(asset preload lands in T032)",
   "dev.menuStub": "MenuScene stub\n(intentionally a stub for v0)",
   "dev.levelStub": "LevelScene stub\n(Tiled-driven level renderer lands in T034)",
+  "dev.levelLoaded": "Level loaded — hero entity lands in T033.\nCamera centered on spawn point.",
   "dev.uiStub": "UIScene stub (HUD/touch/dialog lands later)",
   "dev.gameOverStub": "GameOverScene stub\n(end-of-run UI lands in T036)",
   "dev.fpsLabel": "FPS",
+
+  // --- Boot loading screen (T032). Visible briefly while assets preload. ---
+  "boot.loading": "Loading…",
 
   // --- HUD labels (T035 / T043) -------------------------------------------
   "hud.carrots": "Carrots",

@@ -13,6 +13,13 @@
     "git add": true,
     "git commit": true,
     "npx eslint": true,
-    "npx prettier": true
+    "npx prettier": true,
+    "New-Item": true,
+    "Out-Null": true,
+    "Copy-Item": true,
+    "Test-Path": true,
+    "Out-File": true,
+    "Get-Item": true,
+    "npx vitest": true
   }
 }

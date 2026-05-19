@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-18 (Phase 2 complete)
+**Last updated:** 2026-05-19 (US1 milestone: tilemap renders on screen)
 **Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) (the slice) and `main` (CI-gated, currently lags the slice)
-**Current task:** Spec 002 done. **Spec 001 Phase 2 (Foundational) COMPLETE** as of this commit. Next coding session resumes at **T029** (author `src/data/levels/level-01.tmj` in Tiled).
+**Current task:** Phase 3 (US1) underway. **T029 + T030 + T031 + T032 + partial T034 COMPLETE** as of this commit — `npm run dev` now renders `level-01.tmj` (forest tilemap, 60×18 tiles, three platforms) with camera centered on the spawn point. Next is **T033** (hero entity wired to coyote-time + jump-buffer).
 **Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice` via Azure SWA Free; preview URLs spawn for every other branch / PR)
-**Local dev:** `npm run dev` → http://localhost:5173 → forest-green page with "BootScene stub" text + dev FPS overlay top-left
+**Local dev:** `npm run dev` → http://localhost:5173 → brief "Loading…" → forest level renders with three platforms, two trees, and a dev caption "Level loaded — hero entity lands in T033"
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -19,13 +19,19 @@
 ## TL;DR — where we are
 
 - **Phase 1 (Setup) complete** — toolchain, CI, deploy config, README.
-- **Phase 2 (Foundational) COMPLETE** — every prerequisite that every
-  user story depends on is on disk, typed, and tested. 55 unit tests
-  across 6 files; all five gates green (typecheck / lint / format /
-  test / build); CI green; live build deploys from the branch.
-- **Phase 3 (US1, P1 MVP-floor) next** — starts at **T029**: author
-  `level-01.tmj` in Tiled (Kenney CC0 tileset; record exact pack name
-  in `public/assets/CREDITS.md`).
+- **Phase 2 (Foundational) complete** — every prerequisite is on disk, typed,
+  and tested.
+- **Phase 3 (US1, P1 MVP-floor) IN PROGRESS** — T029 (Tiled level), T030
+  (LevelRegistry), T031 (Kenney asset declarations), T032 (real BootScene
+  with async asset preload), and a minimum-viable slice of T034 (tilemap
+  renders, camera bounded + centered on spawn) all landed in one commit.
+  The first satisfying visible output of the game ships from this PR.
+- 55 unit tests across 6 files; all five gates green (typecheck / lint /
+  format / test / build); CI green; live build deploys from the branch.
+- **Phase 3 (US1) continues** — next is **T033** (hero entity). The hero
+  wires the existing coyote-time + jump-buffer primitives to a Phaser
+  sprite, adds a collider against the `terrain` layer, and replaces the
+  dev caption.
 - **Repo is public**, CI is green on PR #1, branch protection on `main`
   requires CI green. Principle VIII is mechanically enforced.
 
@@ -67,9 +73,10 @@ Constitution Principle VIII is enforced now.
 ```
 src/
 ├── main.ts                ← Vite entry; mounts Phaser into #game; registers SW
-├── game.ts                ← T027 — full Phaser config (WebGL, pixelArt, arcade
-│                            with PHYSICS.gravityY, FIT scale, dom.createContainer
-│                            disabled, postBoot registers `devMode` on registry)
+├── game.ts                ← T027 + T032 — full Phaser config (WebGL, pixelArt,
+│                            arcade with PHYSICS.gravityY, FIT scale,
+│                            dom.createContainer disabled). postBoot seeds
+│                            `devMode` + KennyAssetService on the registry.
 ├── vite-env.d.ts          ← Vite + vite-plugin-pwa type refs
 ├── types/                 ← T013–T017 — typed contracts (no runtime)
 │   ├── runtime-mode.ts    ←   RuntimeMode string-literal union
@@ -87,28 +94,51 @@ src/
 ├── i18n/                  ← T035a — translation seam (Principle III)
 │   ├── en.ts              ←   EN catalog + I18nKey + I18nCatalog types
 │   └── index.ts           ←   t() lookup, setLocale(), getActiveCatalog()
-├── services/              ← T020, T022, T023 — I/O seams (Principle XI)
+├── data/                  ← NEW — game-content data (separate from src/types/)
+│   └── levels/
+│       ├── index.ts       ←   T030 — LevelRegistry: typed map levelId → dynamic
+│       │                       import factory returning the .tmj URL
+│       └── level-01.tmj   ←   T029 — Tiled JSON map, 60×18 tiles @ 18px, embedded
+│                               pixel-platformer-tiles tileset, three platforms,
+│                               spawn point + end rectangle on `entities` layer
+├── services/              ← T020, T022, T023, T031 — I/O seams (Principle XI)
 │   ├── save-service.ts    ←   SaveService interface + LocalStorageSaveService
-│   │                          StorageLike injection, clock injection,
-│   │                          SaveStateInput (T020b), SaveQuotaExceededError
-│   ├── level-loader.ts    ←   T022 — pure loadLevel(tiledJson, levelId,
-│   │                          levelName, assetBudgetBytes): LevelData;
-│   │                          LevelLoadError on invariant violations
-│   └── asset-service.ts   ←   T023 — AssetService + AssetDeclaration;
-│                              KennyAssetService (assets array empty in v0)
+│   ├── level-loader.ts    ←   T022 — pure loadLevel(); LevelLoadError
+│   └── asset-service.ts   ←   T023 + T031 — discriminated-union
+│                              AssetDeclaration (image | spritesheet);
+│                              KennyAssetService.assets has 2 entries:
+│                              the Pixel Platformer tileset image (with
+│                              `tilesetName` for level-binding) and the
+│                              24×24 character spritesheet.
 ├── systems/               ← T024–T026 + T027 — pure logic + debug overlay
 │   ├── coyote-time.ts     ←   CoyoteTimer state machine (8 tests)
 │   ├── jump-buffer.ts     ←   JumpBuffer (8 tests)
 │   ├── physics-helpers.ts ←   clamp, pointInRect, pointDistanceSq,
 │   │                          nextPatrolDirection (18 tests)
-│   └── debug-overlay.ts   ←   T027 — attachFpsOverlay(scene) gated on
-│                              registry `devMode`. Production no-op.
+│   └── debug-overlay.ts   ←   T027 — attachFpsOverlay(scene), dev-only.
 └── scenes/
-    ├── BootScene.ts       ← stub + attachFpsOverlay (real impl: T032)
+    ├── BootScene.ts       ← T032 — resolves level URL via dynamic import,
+    │                          queues tilemap + every AssetService
+    │                          declaration, transitions to LevelScene on
+    │                          loader complete. Owns FPS overlay (until T035).
     ├── MenuScene.ts       ← stub (stays a stub for v0)
-    ├── LevelScene.ts      ← stub (real: T034)
+    ├── LevelScene.ts      ← partial T034 — builds tilemap from cached JSON,
+    │                          binds tilesets via AssetService lookup
+    │                          (`tilesetName`), renders every tile layer,
+    │                          sets world+camera bounds, centers camera on
+    │                          spawn. NO hero yet (T033), NO entity
+    │                          dispatch (T041+).
     ├── UIScene.ts         ← stub (real: T035 / T043 / T049)
     └── GameOverScene.ts   ← stub (real: T036)
+
+public/assets/             ← T029 + T031 — Kenney Pixel Platformer (CC0)
+├── CREDITS.md             ←   provenance for every asset, per Principle VII
+├── tilemaps/kenney-pixel-platformer/
+│   ├── tilemap_packed.png ←   180-tile sheet (20×9 @ 18×18)
+│   └── License.txt        ←   verbatim upstream CC0 license
+└── sprites/kenney-pixel-platformer/
+    ├── tilemap-characters_packed.png ← 27-character sheet (9×3 @ 24×24)
+    └── License.txt
 
 tests/
 └── unit/
@@ -121,52 +151,60 @@ tests/
     └── physics-helpers.test.ts   ← T026 — 18 tests
                                     Total: 55 tests across 6 files.
 
-(src/entities/, src/data/, public/assets/ — still empty; populated by
- the user-story phases starting at T029.)
+(src/entities/ — still empty; lands T033 with the hero. public/icons/
+ still has PWA icon stubs from T011; real icons land T052.)
 ```
 
 ## What's NOT on disk yet (and why that's fine)
 
-- **No real level** (`src/data/levels/level-01.tmj`) — lands T029. Until
-  then BootScene's stub text is what `npm run dev` shows. The
-  `LevelLoadError` test fixtures live in `tests/unit/level-loader.test.ts`
-  and exercise the loader without any on-disk .tmj.
-- **No `LevelRegistry`** (`src/data/levels/index.ts`) — T030.
 - **No hero entity** (`src/entities/hero.ts`) — T033. The coyote-time +
-  jump-buffer primitives are ready; the hero wires them up.
-- **No assets** (`public/assets/`) — Phase 3 (US1, T029+). `KennyAssetService.assets`
-  is intentionally an empty array until US1 + US2 fill it in.
+  jump-buffer primitives are ready; the hero wires them up to a sprite
+  drawn from the character spritesheet (frame 0 per CREDITS.md). A dev
+  caption in LevelScene says "hero entity lands in T033" so the missing
+  piece is visible from the running game.
+- **No collider between hero and terrain** — part of T033/T034. The
+  `terrain` layer is rendered but not yet collision-flagged; that
+  happens when the hero exists.
+- **No entity dispatch** in LevelScene (enemy / carrot / powerup
+  sprites) — US2 (T041) for enemies, US3 (T042) for collectibles. The
+  level-loader already parses these; LevelScene just doesn't act on
+  them yet.
+- **No end-trigger overlap** — lands with the hero. The `endTrigger`
+  rectangle is in `LevelData` but no overlap callback is wired.
+- **No HUD** (UIScene) — stays a stub until T035 (touch controls +
+  landscape lock) / T043 (HUD elements) / T049 (narrator dialog).
 - **Config values are placeholders** — the numbers in `src/config/*.ts`
   are reasonable starting points, NOT playtested. T060 (polish) is the
   retune pass; per-task playtest checklists (T037 / T046 / T051) feed it.
 
-## Next 3 actions (Phase 3, US1 — P1 MVP-floor)
+## Next 3 actions (Phase 3, US1 — P1 MVP-floor continued)
 
-Phase 2 is complete: every prerequisite that every user story depends
-on is on disk, typed, and tested. The next coding session opens US1:
+T029–T032 + partial T034 just landed. The game now loads `level-01.tmj`
+and renders it. Next:
 
-1. **T029** — Author `src/data/levels/level-01.tmj` in **Tiled** (the
-   tool, not code): a small horizontal level with at least one
-   elevated platform (FR-009), a `spawn` point object, a rectangular
-   `end` trigger, ground tiles, and a CC0 tileset from Kenney.nl.
-   Record the **exact pack name + download date** in
-   `public/assets/CREDITS.md` per Principle VII (asset license
-   provenance). This step is the only one in Phase 3 that benefits
-   from being driven by the maintainer (level design judgement).
-2. **T030** — `src/data/levels/index.ts` — typed `LevelRegistry`
-   exporting `{ "level-01": () => import("./level-01.tmj?url") }`.
-   One-liner per new level.
-3. **T031 + T032** — Drop a Kenney CC0 hero spritesheet under
-   `public/assets/sprites/hero/` + tileset under
-   `public/assets/tilemaps/`; register both in
-   `KennyAssetService.assets`; update CREDITS.md. Then implement
-   `BootScene` (T032): iterate `assetService.assets`, dispatch on
-   `.type`, transition to `LevelScene` with `{ levelId: "level-01" }`.
+1. **T033** — Create `src/entities/hero.ts`. Sprite from
+   `hero-pixel-platformer-character-a` frame 0. Wires the existing
+   `CoyoteTimer` (T024) and `JumpBuffer` (T025) primitives to actual
+   keyboard / pointer input. Reads movement constants from
+   `src/config/hero.ts`. Exposes a `Phaser.Physics.Arcade.Sprite` so
+   LevelScene can `add.existing(hero)` and `physics.add.collider(hero, terrain)`.
+2. **Finish T034** — In `LevelScene.create()`, after `buildTilemap()`:
+   - Set collide-by-property (or per-tile-id) on the `terrain` layer
+     so the hero can land on it.
+   - Instantiate the hero at `level.spawn.{x,y}`.
+   - `physics.add.collider(hero, terrain)`.
+   - `cameras.main.startFollow(hero, true)` (and drop the
+     `centerOn(spawn)` call — the follow takes over).
+   - Add an overlap on the `level.endTrigger` rectangle that transitions
+     to `GameOverScene` with a `levelComplete: true` outcome.
+   - Remove the dev caption from `drawDevCaption()` once the hero is
+     visible; replace with HUD when T035 arrives.
+3. **T035** — UIScene real impl: on-screen touch controls (left/right/jump
+   buttons) + `screen.orientation.lock("landscape")` for mobile. Also
+   take over FPS-overlay ownership from BootScene.
 
-After T032 the game can actually load assets and transition; T033
-(hero entity, wired to coyote-time + jump-buffer), T034 (LevelScene
-data-driven), T035 (UIScene touch controls + landscape lock), T036
-(GameOverScene), T037 (playtest checklist) complete US1.
+After T035 the slice plays end-to-end on desktop AND mobile. T036
+(GameOverScene) + T037 (playtest checklist) complete US1.
 
 Natural stopping points: after T029/T030 (level data + registry), after
 T032 (BootScene actually loads things), after T034 (hero can move on
