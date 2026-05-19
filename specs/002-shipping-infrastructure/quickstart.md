@@ -9,7 +9,7 @@ How a contributor or future-self picks up this feature, provisions or verifies t
 - **Azure CLI** (`az --version` ≥ 2.50) and `az login` on a subscription where you have Contributor or Owner on the resource group `rg-carrot-code`. For the maintainer this is the Visual Studio Enterprise subscription, currently active.
 - **GitHub CLI** (`gh auth status`) with permission to manage secrets on `jasaimial/carrot-code` (for the rare manual token-rotation case).
 - **Node.js ≥ 20** and `npm ≥ 10` (matches CI; needed for local build verification).
-- **A modern browser** for the local-build and PWA verification steps. iOS Safari, Android Chrome, and desktop Chromium for the full installability matrix.
+- **A modern browser** for the local-build and PWA verification steps. iOS Safari, desktop Chromium (Chrome or Edge), and desktop Firefox for the full in-scope installability matrix. Android Chrome is explicitly out of scope for v0 (see spec Non-Goals).
 - **Azure portal access** for the one-time SWA-to-GitHub connection step (the only part of this feature that is NOT reproducible from committed files — see below).
 
 ## What is on disk after this feature ships
@@ -121,13 +121,15 @@ If step 5 fails to occur within 5 minutes and the workflow run shows no failure,
 
 ## 4. Verify US2 — PWA installs from a real URL (P2)
 
-For each of the three target platforms, follow the platform-native install flow against the production URL, then confirm the installed launcher opens chromeless and the game runs.
+For each of the three in-scope platforms, follow the platform-native install flow against the production URL, then confirm the installed launcher opens chromeless and the game runs.
 
 - **iOS Safari**: Share → "Add to Home Screen" → tap the new icon → confirm no Safari address bar, no bottom toolbar, custom icon (placeholder color for now).
-- **Android Chrome**: install banner or menu → "Install app" → tap the new icon → confirm standalone window.
-- **Desktop Chromium**: URL-bar install icon or menu → "Install Carrot Code" → confirm dedicated window with custom icon.
+- **Desktop Chromium (Chrome or Edge)**: URL-bar install icon or menu → "Install Carrot Code" → confirm dedicated window with custom icon.
+- **Desktop Firefox**: DevTools → Application panel → confirm manifest validates (no warnings), all icon paths return 200, and the service worker reaches activated state. Firefox does not provide a Chromium-equivalent install affordance on desktop, so the test bar here is parity at the manifest/SW/asset layer per FR-010, not a literal install action.
 
 On the desktop Chromium browser only: run Lighthouse → PWA audit against the production URL. Confirm no installability warnings, no missing-icon warnings.
+
+Android Chrome verification is deferred to a follow-up spec when a device becomes available (spec Non-Goals).
 
 ## 5. Verify US3 — per-branch deploy previews (P3)
 

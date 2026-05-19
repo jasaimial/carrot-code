@@ -4,7 +4,7 @@
 
 ## Summary
 
-Ship the project's continuous-deployment pipeline as defined in [spec.md](./spec.md): a public HTTPS URL serving the current production branch's build via Azure Static Web Apps (Free SKU) in `westus2`, per-branch preview URLs for every non-default branch, end-to-end PWA installability verification on iOS Safari + Android Chrome + desktop Chromium, and an end-to-end offline service-worker verification on a real URL — all of which are preconditions for the 001 vertical slice's PWA/offline acceptance scenarios.
+Ship the project's continuous-deployment pipeline as defined in [spec.md](./spec.md): a public HTTPS URL serving the current production branch's build via Azure Static Web Apps (Free SKU) in `westus2`, per-branch preview URLs for every non-default branch, end-to-end PWA installability verification on iOS Safari + desktop Chromium + desktop Firefox (per FR-010 parity criterion; Android Chrome explicitly out of scope for v0 — see spec Non-Goals), and an end-to-end offline service-worker verification on a real URL — all of which are preconditions for the 001 vertical slice's PWA/offline acceptance scenarios.
 
 **Approach**: provision a single SWA resource in `rg-carrot-code` via the Azure portal's GitHub-connect flow (one-time UI step), commit the auto-generated GitHub Actions workflow as the source of truth for deploys, commit a `staticwebapp.config.json` that mirrors the SPA-fallback + immutable-asset-cache policy currently in `netlify.toml`, drop in placeholder PWA icons sufficient to clear the manifest 404s, and update `README.md` + `HANDOVER.md` with the live URL. The existing `netlify.toml` is retained with a reference comment; the existing CI workflow (`typecheck / lint / test / build`) is unchanged and continues to be the configured required status check on `main` — the new deploy workflow runs additively.
 
@@ -25,7 +25,7 @@ No TypeScript source changes. No new npm dependencies. No new `package.json` scr
 **Testing**: Predominantly **manual playtest-style** verification on real devices and URLs. The unit-test suite (Vitest) gains nothing testable from this feature because there is no new pure TypeScript logic. Per-user-story manual checklists in `tasks.md` (next subagent call) will cover:
 
 - US1: production URL serves the committed HEAD within 5 minutes of push (verified at least twice on independent pushes).
-- US2: PWA install completes on each of iOS Safari, Android Chrome, desktop Chromium, and the installed launcher opens chromeless.
+- US2: PWA install completes on each in-scope platform: iOS Safari (Add to Home Screen → standalone), desktop Chromium (URL-bar install → standalone window), and desktop Firefox (manifest + SW + offline reload parity per FR-010 — no install-action assertion since Firefox lacks a Chromium-equivalent desktop install flow). Android Chrome is explicitly out of scope for v0 (device unavailable; see spec Non-Goals).
 - US3: a non-default branch push produces a unique preview URL distinct from production.
 - US4: with network disabled in DevTools (or airplane mode on device), reload of the production URL renders the BootScene.
 
@@ -35,7 +35,7 @@ Coverage tooling is not extended for this feature — there is no new pure-logic
 
 - **Build/deploy runtime**: GitHub Actions hosted runner (`ubuntu-latest`); Node 20 (matches existing `ci.yml`).
 - **Host runtime**: Azure Static Web Apps (Free SKU), region `westus2` (with `centralus` as the documented fallback if Free is unavailable in `westus2` at provisioning time).
-- **Client runtime (for verification)**: iOS Safari (maintainer's device or a family member's), Android Chrome, desktop Chromium-based browser (Chrome / Edge). PWA install on each must produce a standalone-mode launcher per Constitution Principle V.
+- **Client runtime (for verification)**: iOS Safari (maintainer's device or a family member's), desktop Chromium-based browser (Chrome / Edge), and desktop Firefox. PWA install on iOS Safari and desktop Chromium must produce a standalone-mode launcher per Constitution Principle V; Firefox is verified at the manifest + SW + offline-reload layer (FR-010 parity criterion) since Firefox lacks an equivalent desktop install flow. Android Chrome verification is deferred to a follow-up spec when a device becomes available (spec Non-Goals).
 
 **Project Type**: Single-project SPA (browser game). This feature adds infrastructure / deploy plumbing only — the source-code tree shape from 001's plan is unchanged.
 
@@ -50,7 +50,7 @@ Coverage tooling is not extended for this feature — there is no new pure-logic
 - **Production branch reference is configurable** (FR-004). Today the workflow's production trigger is `001-vertical-slice`; after the slice merges to `main`, the trigger is updated in the same commit/PR that performs the rename.
 - **No npm dependency additions** and **no new `package.json` scripts**. The SWA Action calls `npm ci && npm run build` directly using the existing `build` script.
 
-**Scale/Scope**: One Azure resource (the SWA), one resource group, one GitHub secret, four new files at the repo root (`staticwebapp.config.json`, the SWA workflow, and two `public/icons/*.png` placeholders — the third icon path and `apple-touch-icon.png` are already declared in `vite.config.ts` / `index.html`), three edited files (`README.md`, `docs/learning/HANDOVER.md`, `netlify.toml`). Estimated wall-clock from "click Create" to "live URL serves the slice" measured in minutes, not hours.
+**Scale/Scope**: One Azure resource (the SWA), one resource group, one GitHub secret, **seven new files**: `staticwebapp.config.json` at repo root, the auto-generated SWA workflow at `.github/workflows/azure-static-web-apps-*.yml`, four `public/icons/*.png` placeholders (icon-192, icon-512, icon-maskable-512, apple-touch-icon — the manifest declares all four and all four currently 404), and one Node script at `scripts/generate-placeholder-icons.mjs` (one-off generator using only Node built-ins; commits the four PNGs above). Three edited files (`README.md`, `docs/learning/HANDOVER.md`, `netlify.toml`). Estimated wall-clock from "click Create" to "live URL serves the slice" measured in minutes, not hours.
 
 ## Constitution Check
 
@@ -130,7 +130,7 @@ tests/**                                          # No unit-test additions (no n
 
 **Workflow filename**: Azure picks the `<random>` suffix and commits the file directly to the repo on its first run. We do not pick it; we accept whatever Azure produces and treat that filename as stable from that point on (Azure does not re-randomize it on subsequent edits unless the SWA resource is deleted and re-created).
 
-**Structure Decision**: Single-project SPA layout is unchanged from 001's plan. This feature's structural footprint is two repo-root files (`staticwebapp.config.json` and a docs edit), one `.github/workflows/` addition, and a small `public/icons/` directory. No new top-level directories are introduced.
+**Structure Decision**: Single-project SPA layout is unchanged from 001's plan. This feature's structural footprint is `staticwebapp.config.json` at the repo root, one `.github/workflows/` addition, a small `public/icons/` directory with four placeholder PNGs, and a new top-level `scripts/` directory containing exactly one file: a one-off Node script (`generate-placeholder-icons.mjs`) using only Node built-in modules to emit the four PNGs above (rationale: preserves the no-new-npm-dependencies invariant and provides a regen path if the colour ever changes; full justification in tasks.md T109).
 
 ## Complexity Tracking
 

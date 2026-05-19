@@ -129,7 +129,7 @@
 
 - [ ] **T118 [US4]** Playtest: **service worker works offline** (spec US4 / FR-012 / FR-013 / FR-014 / SC-004). Checklist on desktop Chromium: (a) open the URL with network enabled, wait for BootScene to render, then open DevTools → Application → Service Workers → confirm a service worker is shown as "activated and is running" with a non-empty precache; (b) DevTools → Network → throttle dropdown → "Offline" → reload (Ctrl+R) → confirm the BootScene re-renders within 3 seconds (SC-004) and no user-visible failed-network errors appear; (c) optional but valuable: on a real device after completing T116, put the device in airplane mode and re-launch the installed PWA from its home-screen / app-drawer icon → confirm it reaches the same entry rendering as an online launch (FR-013).
   - **Why**: SC-004's 3-second offline-reload target and FR-013's airplane-mode-launch behaviour are both unobservable on localhost; they require the SWA-served URL to verify the service worker is registering against the actual origin.
-  - **Mode**: device (desktop Chromium DevTools; optionally a real iOS or Android device for the airplane-mode launch)
+  - **Mode**: device (desktop Chromium DevTools; optionally a real iOS device for the airplane-mode launch — Android device case is out of scope for v0 per spec Non-Goals)
 
 **Checkpoint**: All four spec user stories have been exercised on a real URL. SC-001 through SC-005 measurements have been recorded. The feature meets the spec's definition of "shipped" once T119 + T120 + T122 land in addition (the docs + journal close out FR-024 / FR-025 / Constitution II.6).
 
@@ -157,22 +157,33 @@
 
 - [ ] **T122 [DOCS]** Author a journal entry under `docs/learning/journal/` (filename: `YYYY-MM-DD-shipping-infrastructure.md` per existing convention) covering: (a) what shipped in this feature (one paragraph); (b) the one portal-required step (T103) and why no CLI equivalent exists; (c) any surprises during T106 workflow review (which of the five fields actually needed editing); (d) the per-US playtest results from Phase 4 with the URL each playtest used; (e) the downstream T058 coupling and the merge sequence required to flip production from `001-vertical-slice` to `main`.
 
-  **Sensitive-identifier grep checklist (REQUIRED before commit)** — per Constitution Principle XII + FR-022 + [research.md Q9](./research.md#q9-secrets-management--why-github-actions-secrets-not-azure-key-vault). Run each of the four patterns below against the draft journal file (PowerShell `Select-String` or equivalent) and confirm zero matches before `git add`:
+  **Sensitive-identifier grep checklist (REQUIRED before commit)** — per Constitution Principle XII + FR-022 + [research.md Q9](./research.md#q9-secrets-management--why-github-actions-secrets-not-azure-key-vault). Run each of the five patterns below against the draft journal file (PowerShell `Select-String` or equivalent) and confirm zero matches before `git add`:
 
   ```text
   # 1. UUID-shaped strings (subscription / tenant / resource IDs)
   Select-String -Path <journal-file> -Pattern '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
   # 2. Full Azure ARM resource paths
   Select-String -Path <journal-file> -Pattern '/subscriptions/'
-  # 3. Email addresses
-  Select-String -Path <journal-file> -Pattern '[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
-  # 4. Tenant display name as it appears in `az account show` for this maintainer
-  #    (substitute the actual string the maintainer redacts to verify; do not
-  #     commit the pattern itself if it contains a real name)
-  Select-String -Path <journal-file> -Pattern '<the maintainer''s tenant display name>'
+  # 3. Email addresses (with carve-out for the maintainer's accepted
+  #    GitHub noreply identity — that form is documented in HANDOVER as
+  #    the project's signed git identity and matches are acknowledged-
+  #    and-skipped, not redacted).
+  Select-String -Path <journal-file> -Pattern '[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' |
+    Where-Object { $_.Line -notmatch '@users\.noreply\.github\.com' }
+  # 4. Token-shaped secrets (JWT, OpenAI key, GitHub PAT, AWS access key).
+  #    Any match here is a stop-the-line incident regardless of context —
+  #    rotate the credential before doing anything else (per Constitution
+  #    Principle III secrets rule).
+  Select-String -Path <journal-file> -Pattern '(eyJ[a-zA-Z0-9_-]{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|AKIA[A-Z0-9]{16,})'
+  # 5. Tenant display name as it appears in `az account show` for this maintainer.
+  #    Run interactively: ask the maintainer for the current value at commit
+  #    time; do NOT hardcode it in this file (the pattern itself would be a
+  #    leak). The agent CANNOT autonomously satisfy this check — it's a
+  #    maintainer-in-the-loop step by design.
+  # Select-String -Path <journal-file> -Pattern '<value provided interactively>'
   ```
 
-  Each pattern returning ZERO matches is the green-to-commit signal. If any pattern matches, redact and re-grep before commit. (This pre-commit grep should be automated as a Husky / pre-commit hook in a separate follow-up; treating it as a manual checklist here keeps the discipline visible while we ship the first feature that triggers it.)
+  Each pattern returning ZERO matches (or pattern 5 confirmed by the maintainer) is the green-to-commit signal. If any pattern matches, redact and re-grep before commit. (This pre-commit grep should be automated as a Husky / pre-commit hook in a separate follow-up; treating it as a manual checklist here keeps the discipline visible while we ship the first feature that triggers it.)
 
   File: `docs/learning/journal/YYYY-MM-DD-shipping-infrastructure.md` (substitute the actual date on commit day).
   - **Why**: Constitution II.6 / journal-entry discipline. Future-self and any collaborator pick up the project from this entry plus HANDOVER.md. The grep checklist is the mechanical answer to the question Q9 raises: how do we keep sensitive identifiers OUT of committed files in a workflow where the agent legitimately needs them to do its job?
@@ -208,7 +219,7 @@
 - **Within Phase 5**: T119, T120, T121, T122 all touch independent files (README.md, HANDOVER.md, specs/001-vertical-slice/tasks.md, docs/learning/journal/YYYY-MM-DD-shipping-infrastructure.md) and are fully parallel.
 - **Across phases**: T112 (netlify.toml comment) is genuinely independent of everything in Phase 1 and Phase 2 — it could be authored and committed at any point, though batching it with T108/T110 into a single Phase-3 commit is cleaner.
 
-Parallel-eligible task count: **6** (T108, T109, T112, T119, T120, T121, T122 — though T119/T120 jointly depend on T104+T115).
+Parallel-eligible task count: **7** (T108, T109, T112, T119, T120, T121, T122 — though T119/T120 jointly depend on T104+T115).
 
 ### Execution-mode breakdown
 

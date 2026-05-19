@@ -82,15 +82,19 @@ launcher with no browser chrome.
 **Why this priority**: Per the constitution and per FR-032 through
 FR-036 in the 001 slice, installability is part of "shipped." This
 capability is impossible to demonstrate on localhost: iOS Safari will
-not surface "Add to Home Screen" without HTTPS, Android Chrome
+not surface "Add to Home Screen" without HTTPS, desktop Chromium's
 installability requires a passing manifest served over HTTPS, and the
 service worker registration only takes effect on a secure context. P2
-exists in this spec because P1 (a real URL) is its precondition.
+exists in this spec because P1 (a real URL) is its precondition. (For
+v0 Android Chrome is out of scope on device-availability grounds — see
+Non-Goals.)
 
-**Independent Test**: On each of the three target platforms (iOS
-Safari, Android Chrome, desktop Chromium), visit the public URL,
-trigger the platform-native install flow, launch the resulting icon,
-and confirm the game opens chromeless and is playable.
+**Independent Test**: On each of the three in-scope target platforms
+(iOS Safari, desktop Chromium per FR-009, desktop Firefox per FR-010
+parity criterion), visit the public URL, trigger the platform-native
+install flow (or, for Firefox, the manifest+SW parity check), and
+confirm the game opens chromeless and is playable (where the platform
+supports a literal install action).
 
 **Acceptance Scenarios**:
 
