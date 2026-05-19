@@ -24,8 +24,8 @@
 
 **Purpose**: Stand up the SWA resource and the GitHub deployment-token secret. After this phase the production URL exists; no other phase can reference a live URL until this phase completes.
 
-- [ ] **T101 [PROV]** Confirm Azure CLI session targets the intended subscription. Run `az account show --query "{name:name, id:id, tenantId:tenantId, user:user.name}" -o table` and confirm the active subscription is the maintainer's Visual Studio Enterprise subscription. Do NOT print or commit the IDs anywhere (Constitution Principle XII / FR-022). 
-  - **Why**: every subsequent `az` call in Phase 1 inherits this context; getting it wrong silently provisions into the wrong subscription.
+- [ ] **T101 [PROV]** Confirm Azure CLI session targets the intended subscription. Run `az account show --query "{name:name, subscriptionType:user.type}" -o table` and confirm the active subscription **name** equals `Visual Studio Enterprise Subscription`. **Do NOT print or capture the subscription ID, tenant ID, full user identity, or any UUID-shaped fields anywhere** — not in the terminal output that gets pasted into a journal, not in a comment, not in a commit message. The narrow `--query` form above intentionally excludes those fields. Per Constitution Principle XII + FR-022 + [research.md Q9](./research.md#q9-secrets-management--why-github-actions-secrets-not-azure-key-vault) sensitive-identifier discipline.
+  - **Why**: every subsequent `az` call in Phase 1 inherits this context; getting the wrong subscription silently provisions into the wrong place. The narrow query is the form that lets the agent verify the right context WITHOUT seeing the identifiers that would make the verification itself a leak vector.
   - **Mode**: agent
 
 - [ ] **T102 [PROV]** Ensure resource group `rg-carrot-code` exists in `westus2`. Run `az group create --name rg-carrot-code --location westus2` (idempotent — succeeds if the group already exists).
@@ -36,8 +36,8 @@
   - **Why**: this is the ONLY step in the entire feature that cannot be done from CLI. The portal flow triggers a GitHub OAuth handshake that (a) auto-installs a deploy workflow file at `.github/workflows/azure-static-web-apps-<random>.yml` on the configured branch and (b) auto-creates a GitHub repo secret `AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM>` with the deployment token as its value. The token value never reaches the maintainer's screen and never enters the repo (FR-022). The CLI command `az staticwebapp create --source <repo>` does NOT install the deploy workflow nor wire up the secret — confirmed in [research.md Q6](./research.md#q6-github-actions-workflow--what-does-azure-auto-generate-and-what-do-we-adjust).
   - **Mode**: portal
 
-- [ ] **T104 [PROV]** After T103 returns, capture the public host name and verify the GitHub secret landed. Run `az staticwebapp show --name <swa-name> --resource-group rg-carrot-code --query "{defaultHostname:defaultHostname, repositoryUrl:repositoryUrl, branch:branch}" -o table` and `gh secret list --repo jasaimial/carrot-code | Select-String AZURE_STATIC_WEB_APPS_API_TOKEN`. Record the `defaultHostname` value (the production URL) in the session journal — DO NOT commit any subscription/tenant/resource IDs.
-  - **Why**: T119/T120 will paste this URL into `README.md` and `HANDOVER.md`; the secret-list confirms FR-021 is satisfied (secret exists in GitHub with the Azure-convention name).
+- [ ] **T104 [PROV]** After T103 returns, capture **only** the two pieces of information subsequent tasks need: (1) the **public host name** via `az staticwebapp show --name <swa-name> --resource-group rg-carrot-code --query "defaultHostname" -o tsv`, and (2) the **name** (not value) of the auto-created GitHub secret via `gh secret list --repo jasaimial/carrot-code | Select-String "AZURE_STATIC_WEB_APPS_API_TOKEN"`. Record the `defaultHostname` value in the session journal as a value you intend to commit later (T119/T120). **Do NOT capture or commit** anywhere: the SWA resource ID, subscription ID, tenant ID, full ARM path, the deployment-token value (the `gh secret list` command above returns names + timestamps only — never values), or anything else from `az staticwebapp show` beyond `defaultHostname`. Per FR-022 + [research.md Q9](./research.md#q9-secrets-management--why-github-actions-secrets-not-azure-key-vault).
+  - **Why**: T119/T120 will paste only the URL into `README.md` and `HANDOVER.md`; the secret-list confirms FR-021 is satisfied (secret exists in GitHub with the Azure-convention name). Anything else printed by `az staticwebapp show` (including the full resource ID) is sensitive-identifier surface and should never enter the agent's context.
   - **Mode**: agent
 
 **Checkpoint**: The SWA resource exists in `rg-carrot-code/westus2` (or `centralus`); the production URL is known; the GitHub secret `AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM>` exists; Azure has committed the auto-generated workflow file to `001-vertical-slice` and started a first run (which may or may not be green — addressed in Phase 2).
@@ -54,8 +54,12 @@
   - **Why**: the file is committed by Azure directly to the configured production branch; the agent must work on that branch (not 002) to review and edit it.
   - **Mode**: agent
 
-- [ ] **T106 [WORKFLOW]** Review and adjust the five fields per [research.md Q6](./research.md#q6-github-actions-workflow--what-does-azure-auto-generate-and-what-do-we-adjust) and [contracts/swa-deployment.md "Manual edits we expect to make"](./contracts/swa-deployment.md#manual-edits-we-expect-to-make-to-the-auto-generated-workflow): (1) `node-version: 20` (edit if Azure chose otherwise — matches existing `ci.yml`), (2) `app_location: "/"` (confirm default), (3) `api_location: ""` (confirm default), (4) `output_location: "dist"` (edit if missing/wrong — most likely required), (5) `skip_app_build` absent or `false` (confirm default). Also confirm `on.push.branches` and `on.pull_request.branches` reference `001-vertical-slice`. File: `.github/workflows/azure-static-web-apps-<random>.yml` on branch `001-vertical-slice`.
-  - **Why**: FR-016 — workflow is reviewed for sensible defaults before its first relied-on run.
+- [ ] **T106 [WORKFLOW]** Review and adjust the five fields per [research.md Q6](./research.md#q6-github-actions-workflow--what-does-azure-auto-generate-and-what-do-we-adjust) and [contracts/swa-deployment.md "Manual edits we expect to make"](./contracts/swa-deployment.md#manual-edits-we-expect-to-make-to-the-auto-generated-workflow): (1) `node-version: 20` (edit if Azure chose otherwise — matches existing `ci.yml`), (2) `app_location: "/"` (confirm default), (3) `api_location: ""` (confirm default), (4) `output_location: "dist"` (edit if missing/wrong — most likely required), (5) `skip_app_build` absent or `false` (confirm default). Also confirm `on.push.branches` and `on.pull_request.branches` reference `001-vertical-slice`.
+
+  **Sensitive-identifier scrutiny (new in this revision)**: scan the workflow file body for any UUID-shaped strings (`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`), any `/subscriptions/` paths, and any email addresses. The action invocation should only reference the GitHub-secret name (`${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM> }}`) and the repo's app metadata — NOT the subscription ID, tenant ID, or full ARM resource path. If Azure's auto-generator embedded any of those, redact them before commit (the action does not need them). Per Constitution Principle XII + FR-022.
+
+  File: `.github/workflows/azure-static-web-apps-<random>.yml` on branch `001-vertical-slice`.
+  - **Why**: FR-016 — workflow is reviewed for sensible defaults AND for sensitive-identifier leakage before its first relied-on run. Workflow YAML is committed to a public repo; an embedded subscription ID is a permanent leak.
   - **Mode**: agent
 
 - [ ] **T107 [WORKFLOW]** Commit the workflow edits (if any) on `001-vertical-slice` with a message naming the field(s) adjusted (e.g., `ci(swa): pin node-version to 20, set output_location to dist`). Push. Watch the workflow re-run in the GitHub Actions tab; confirm it ends green and the production URL (T104) now serves a Vite build (not the SWA placeholder page).
@@ -112,12 +116,12 @@
   - **Why**: SC-001 (push-to-live ≤ 5 min, twice) and SC-002 (10-second-to-render for a first-time visitor) are the headline measurable outcomes for this feature.
   - **Mode**: device (any modern browser; second device or incognito profile required for the "fresh visitor" simulation)
 
-- [ ] **T116 [US2]** Playtest: **PWA installs from a real URL** (spec US2 / FR-008 / FR-009 / FR-010 / FR-011 / SC-003). Three independent runs, one per target platform:
+- [ ] **T116 [US2]** Playtest: **PWA installs from a real URL** (spec US2 / FR-008 / FR-009 / FR-010 / FR-011 / SC-003). Three independent runs, one per IN-SCOPE platform (Android Chrome is explicitly out of scope for v0 per spec Non-Goals — deferred to a follow-up spec when an Android device is available):
   - **iOS Safari**: visit the URL → Share → "Add to Home Screen" → tap the new home-screen icon → confirm the game opens with no Safari address bar and no bottom toolbar (standalone mode), placeholder-color icon visible on home screen.
-  - **Android Chrome**: visit the URL → trigger install via the organic install banner OR menu → "Install app" → tap the new icon → confirm standalone window, placeholder-color icon in the app drawer.
   - **Desktop Chromium (Chrome or Edge)**: visit the URL → click the URL-bar install icon OR menu → "Install Carrot Code" → confirm the game opens in a dedicated standalone window with custom icon. Then run Lighthouse → PWA audit against the URL: confirm zero installability warnings and zero missing-icon warnings (FR-011 verification).
-  - **Why**: SC-003 cannot be satisfied without all three; localhost cannot exercise iOS "Add to Home Screen" or Lighthouse's HTTPS-only PWA checks. This is the playtest the entire feature exists to enable.
-  - **Mode**: device (three physical/virtual devices: an iPhone or iPad running modern Safari, an Android device with Chrome, and a desktop with Chrome or Edge)
+  - **Desktop Firefox**: visit the URL → about:debugging or DevTools → Application → confirm the manifest validates with no warnings, all icon paths return 200, and the service worker reaches activated state. Firefox does not provide a Chromium-equivalent install affordance on desktop, so the test bar here is parity at the manifest/SW/asset layer (FR-010), not a literal install action.
+  - **Why**: SC-003 requires all three in-scope platforms. Localhost cannot exercise iOS "Add to Home Screen" or Lighthouse's HTTPS-only PWA checks. This is the playtest the entire feature exists to enable. Android Chrome verification re-opens as a follow-up spec when device available; the deployed build is expected to install correctly there (same Chromium codebase) but the spec does not assert what was not verified.
+  - **Mode**: device (three platforms: an iPhone or iPad running modern Safari, a desktop with Chrome or Edge, and that same desktop or another running Firefox)
 
 - [ ] **T117 [US3]** Playtest: **per-branch deploy previews** (spec US3 / FR-005 / FR-006 / FR-007 / SC-005). Checklist: (a) confirm the most recent push to `002-shipping-infrastructure` (T113) produced a unique preview URL distinct from production — observable in the GitHub Actions run summary for that push and/or in the SWA portal → Environments view; (b) open the preview URL, confirm it serves the 002-branch HEAD (the build with `staticwebapp.config.json` and placeholder icons), distinct from production (which at this point still serves the 001 HEAD); (c) on a throwaway branch (`git checkout -b preview-test-throwaway && git commit --allow-empty -m "preview test" && git push -u origin preview-test-throwaway`), confirm a NEW preview URL is generated, distinct from both production and the 002 preview; (d) `git push origin --delete preview-test-throwaway` and confirm the SWA portal → Environments view shows the entry disappear within ~5 minutes (FR-007 cleanup verification).
   - **Why**: SC-005 requires at least one non-default branch end-to-end; the throwaway-branch step in (c)+(d) also exercises FR-007's preview cleanup.
@@ -151,8 +155,27 @@
   - **Why**: The user-supplied context for this feature explicitly flags this coupling. The edit lands on `002-shipping-infrastructure` so it travels with the merge that actually changes what T058 means; once that merge happens, the 001 task list is consistent again. (If the maintainer prefers to land this T058 edit on the 001 branch directly via cherry-pick, that's also fine — the wording is the same either way.)
   - **Mode**: agent
 
-- [ ] **T122 [DOCS]** Author a journal entry under `docs/learning/journal/` (filename: `YYYY-MM-DD-shipping-infrastructure.md` per existing convention) covering: (a) what shipped in this feature (one paragraph); (b) the one portal-required step (T103) and why no CLI equivalent exists; (c) any surprises during T106 workflow review (which of the five fields actually needed editing); (d) the per-US playtest results from Phase 4 with the URL each playtest used; (e) the downstream T058 coupling and the merge sequence required to flip production from `001-vertical-slice` to `main`. Apply public-repo hygiene per Constitution Principle XII: no real names, no email, no subscription/tenant IDs, no token values. File: `docs/learning/journal/YYYY-MM-DD-shipping-infrastructure.md` (substitute the actual date on commit day).
-  - **Why**: Constitution II.6 / journal-entry discipline. Future-self and any collaborator pick up the project from this entry plus HANDOVER.md.
+- [ ] **T122 [DOCS]** Author a journal entry under `docs/learning/journal/` (filename: `YYYY-MM-DD-shipping-infrastructure.md` per existing convention) covering: (a) what shipped in this feature (one paragraph); (b) the one portal-required step (T103) and why no CLI equivalent exists; (c) any surprises during T106 workflow review (which of the five fields actually needed editing); (d) the per-US playtest results from Phase 4 with the URL each playtest used; (e) the downstream T058 coupling and the merge sequence required to flip production from `001-vertical-slice` to `main`.
+
+  **Sensitive-identifier grep checklist (REQUIRED before commit)** — per Constitution Principle XII + FR-022 + [research.md Q9](./research.md#q9-secrets-management--why-github-actions-secrets-not-azure-key-vault). Run each of the four patterns below against the draft journal file (PowerShell `Select-String` or equivalent) and confirm zero matches before `git add`:
+
+  ```text
+  # 1. UUID-shaped strings (subscription / tenant / resource IDs)
+  Select-String -Path <journal-file> -Pattern '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+  # 2. Full Azure ARM resource paths
+  Select-String -Path <journal-file> -Pattern '/subscriptions/'
+  # 3. Email addresses
+  Select-String -Path <journal-file> -Pattern '[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+  # 4. Tenant display name as it appears in `az account show` for this maintainer
+  #    (substitute the actual string the maintainer redacts to verify; do not
+  #     commit the pattern itself if it contains a real name)
+  Select-String -Path <journal-file> -Pattern '<the maintainer''s tenant display name>'
+  ```
+
+  Each pattern returning ZERO matches is the green-to-commit signal. If any pattern matches, redact and re-grep before commit. (This pre-commit grep should be automated as a Husky / pre-commit hook in a separate follow-up; treating it as a manual checklist here keeps the discipline visible while we ship the first feature that triggers it.)
+
+  File: `docs/learning/journal/YYYY-MM-DD-shipping-infrastructure.md` (substitute the actual date on commit day).
+  - **Why**: Constitution II.6 / journal-entry discipline. Future-self and any collaborator pick up the project from this entry plus HANDOVER.md. The grep checklist is the mechanical answer to the question Q9 raises: how do we keep sensitive identifiers OUT of committed files in a workflow where the agent legitimately needs them to do its job?
   - **Mode**: agent
 
 **Checkpoint**: The live URL is discoverable from both `README.md` and `HANDOVER.md`. The 001 slice's T058 is updated to reflect post-shipping-infrastructure reality. The session is journaled. **Spec is shipped.**

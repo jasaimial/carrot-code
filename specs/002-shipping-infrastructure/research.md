@@ -171,3 +171,48 @@ If both fail simultaneously (highly unlikely; would indicate a wide regional out
 **Alternatives considered**: silently provisioning in `eastus2` (next-closest Free region) — rejected because a silent change to a fundamental infrastructure parameter is exactly the kind of thing Principle XII's spec-first discipline exists to prevent. A two-line edit to plan.md and a journal entry costs nothing and keeps the record clean.
 
 **Rejected because**: silent geographic drift in a documented infra spec is worse than a brief pause.
+
+## Q9: Secrets management — why GitHub Actions Secrets, not Azure Key Vault?
+
+**Decision**: Use GitHub Actions Secrets as the storage for the SWA deployment token. Do NOT introduce Azure Key Vault for this feature.
+
+**Why this is a real question**: a reviewer raising "shouldn't sensitive data live in a vault?" is correct in principle. The answer is that GitHub Actions Secrets _is_ the vault for our scale, and adding a second vault increases attack surface without reducing material risk.
+
+**Three categories of sensitive data this feature touches** (taxonomy first so the rest of the answer applies the right rule to the right thing):
+
+| Category | Examples in this feature | Where it lives | Committed? |
+| --- | --- | --- | --- |
+| **Secret** (lose = compromised) | SWA deployment token | GitHub Actions Secret named `AZURE_STATIC_WEB_APPS_API_TOKEN_<RANDOM>`; written by Microsoft via the portal OAuth handshake; never on disk locally; masked in workflow logs | NO. The secret _name_ may appear in workflow YAML; the _value_ never does. |
+| **Sensitive identifier** (not secret, but fingerprinting / phishing surface) | Azure subscription ID, tenant ID, resource group ARM ID, maintainer's real name (as it appears in `az account show`), email address | Maintainer's local `az` CLI cache; never committed; never printed to terminal output that gets pasted anywhere durable | NO. Per Constitution Principle XII, treat these like secrets for committed-file purposes. |
+| **Public identifier** (designed to be world-visible) | GitHub handle `jasaimial`, repo URL, the eventual SWA hostname `<app>.<region>.azurestaticapps.net` | README, manifest, journal entries, this very research doc | YES, where useful (the SWA hostname IS the product). |
+
+**Why GitHub Actions Secrets, not Azure Key Vault, for the secret in the first row**:
+
+- **Same encryption-at-rest properties.** GH Actions Secrets are AES-encrypted at rest with a per-org key, scoped to the repository, injected at workflow runtime as masked env vars, and never logged in plaintext. Functionally equivalent to Key Vault for this single use case.
+- **Fewer auth hops.** With GH Actions Secrets: `Microsoft (portal) → GitHub (secret writer) → workflow runtime`. With Key Vault: `Microsoft (portal) → Key Vault (secret writer) → GitHub workflow uses OIDC federation → Azure AD trust → Key Vault read → workflow runtime`. Each hop is auth that can be misconfigured or bypassed; fewer hops = smaller blast radius.
+- **No application-runtime requirement.** The deployment token is read exactly once per deploy, by exactly one consumer (the `Azure/static-web-apps-deploy@v1` action). Key Vault's main wins (centralized rotation policy, runtime read from app code, multi-app secret reuse, audit-log richness beyond GH Audit Log) don't apply when the secret is consumed only by a workflow.
+- **OIDC federation isn't free.** Replacing the token with OIDC means setting up an Azure AD app registration, a federated credential trust, a `permissions.id-token: write` block in every workflow, and an `azure/login@v2` step before the deploy. More YAML, more concepts, more places to misconfigure. For one secret used by one workflow, the trade is wrong.
+
+**When this decision would flip**:
+
+- Multi-repo secret reuse (one Azure resource consumed by several GitHub repos' workflows).
+- Compliance requirement (HIPAA/PCI/SOX) that mandates a centralized secret store with specific audit-log retention.
+- Adding application code (not just CI) that reads secrets at runtime (e.g., a Functions backend that calls a third-party API with a key).
+- A contributor model where some people need to deploy but not read the secret value via GH UI (which would require fine-grained RBAC GH Actions Secrets don't currently model well).
+
+None of these apply to v0. All are pre-conditions for a future "graduate to Key Vault" follow-up spec if/when they do.
+
+**Sensitive-identifier discipline** (the second row of the table; this is the part most likely to leak by accident in practice):
+
+- `az account show` output: do not paste verbatim into commits, journal entries, PR descriptions, or chat-summary docs that later become committed.
+- Resource IDs (`/subscriptions/<id>/resourceGroups/...`): never reference by ID in committed files. Reference by name (`rg-carrot-code`, the app name) only.
+- Tenant display name: `az account show` exposes the maintainer's real-name-bearing tenant display name. Filter it out of any committed artifact.
+- The journal entry's final commit (T122 in tasks.md) MUST grep its own content for UUID-shaped strings, `/subscriptions/`, email patterns, and the tenant display name before commit.
+
+**Alternatives considered**:
+
+- **Azure Key Vault + OIDC federation** — rejected on net-complexity grounds at this scale. Reasoning above.
+- **Encrypt the token at rest in a committed file** (sealed-secrets pattern, age, etc.) — rejected because the decryption key has to live somewhere, and the somewhere is GitHub Secrets. Just use Secrets directly.
+- **No vault at all; commit the token to the repo** — obviously rejected. Listed only because it has happened in real projects and the constitution principle exists to prevent it.
+
+**Rejected because**: the "shouldn't this be in a vault?" instinct is correct, but GitHub Actions Secrets is structurally a vault for the one secret that exists in this feature. Adding Key Vault would add hops, not protection, at our scale.

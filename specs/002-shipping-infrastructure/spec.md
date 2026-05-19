@@ -98,16 +98,20 @@ and confirm the game opens chromeless and is playable.
    they tap Share → "Add to Home Screen", **Then** an icon appears on
    the home screen and tapping it opens the game in standalone mode
    with no Safari address bar or bottom toolbar visible.
-2. **Given** a player on Android Chrome visits the public URL,
-   **When** they invoke the install flow (either the organic install
-   banner or the browser menu's "Install app" option), **Then** an
-   icon appears on the home screen / app drawer and tapping it opens
-   the game in a standalone window.
-3. **Given** a player on desktop Chromium-based browser visits the
+2. **Given** a player on desktop Chromium-based browser visits the
    public URL, **When** they click the install icon in the URL bar
    (or use the menu's "Install app"), **Then** the game opens in a
    dedicated standalone window with a custom icon and no browser
    chrome.
+3. **Given** a player on desktop Firefox visits the public URL,
+   **When** they exercise Firefox's PWA support path (Add to Home
+   Screen on the Android Firefox build, or the manifest-aware
+   shortcut behaviour on desktop), **Then** the manifest validates
+   without warnings in the about:debugging / Network panel, the
+   icons resolve with 200 status, and Firefox treats the page as a
+   first-class PWA candidate (Firefox's native install affordance is
+   weaker than Chromium's; the test target is "manifest valid + icons
+   served + offline reload works," not "installs to home screen").
 4. **Given** the installed PWA is open on any platform, **When** the
    player exercises the basic game loop, **Then** the game responds
    identically to how it does in the browser tab (no missing assets,
@@ -282,11 +286,16 @@ requests succeeding.
   Safari via Share → "Add to Home Screen", launching in standalone
   mode with no Safari chrome.
 - **FR-009**: The deployed site MUST be installable as a PWA on
-  Android Chrome via the install banner or the browser menu,
-  launching in standalone mode.
-- **FR-010**: The deployed site MUST be installable as a PWA on
-  desktop Chromium-based browsers via the URL-bar install icon or
-  the browser menu, launching in a dedicated standalone window.
+  desktop Chromium-based browsers (Chrome, Edge) via the URL-bar
+  install icon or the browser menu, launching in a dedicated
+  standalone window.
+- **FR-010**: The deployed site MUST serve a valid web manifest and
+  registered service worker that desktop Firefox can introspect
+  without warnings (manifest valid, icons resolve, service worker
+  reaches activated state). Firefox does not currently offer a
+  first-class install flow on desktop equivalent to Chromium; the
+  target here is platform parity at the manifest / SW / asset
+  layer, not a literal install action.
 - **FR-011**: The deployed site MUST serve every PWA-icon path
   declared by the manifest with a 200 response (no 404s on any
   manifest-declared icon).
@@ -383,10 +392,13 @@ document beyond what the 001 slice already covers.)*
   production URL on a modern phone or laptop and reach the game's
   current entry rendering in under 10 seconds on a typical home
   internet connection, with zero setup on their device.
-- **SC-003**: PWA installability succeeds on all three target
-  platforms (iOS Safari, Android Chrome, desktop Chromium) using
-  each platform's native install flow, with no warnings reported by
-  Chrome's "Lighthouse → PWA" audit on the desktop Chromium path.
+- **SC-003**: PWA installability succeeds on the three in-scope
+  target platforms (iOS Safari, desktop Chromium, and desktop
+  Firefox per FR-010's parity criterion), with no warnings reported
+  by Chrome's "Lighthouse → PWA" audit on the desktop Chromium
+  path. Android Chrome is explicitly out of scope for v0 (see
+  Non-Goals); when an Android device becomes available, a follow-up
+  spec covers the install-flow verification.
 - **SC-004**: With network disabled in DevTools (or airplane mode
   on a device) after a single prior online load, a reload of the
   production URL renders the BootScene within 3 seconds and
@@ -438,6 +450,12 @@ every detail. Each is reasonable for a solo project at v0 scale.
 - **PWA icon quality**: placeholder PNGs of any solid colour are
   acceptable for clearing installability checks. Real art is part
   of `001-vertical-slice` task T052, not this feature.
+- **Browser support matrix for v0**: iOS Safari (install + run),
+  desktop Chromium / Chrome / Edge (install + run + Lighthouse PWA
+  audit), desktop Firefox (manifest + SW + offline reload parity;
+  no install assertion per FR-010 rationale). Android Chrome is
+  expected to work but is not verified in v0 (see Non-Goals). A
+  follow-up spec covers Android when a device becomes available.
 - **No private previews**: preview URLs from SWA Free are
   unauthenticated and treated as publicly discoverable. The
   maintainer's responsibility is to not push known-broken or
@@ -469,6 +487,17 @@ declared done.
   default SWA edge network provides.
 - **Removing `netlify.toml`.** The file stays with a reference
   comment. Removal is a separable cleanup spec.
+- **Android Chrome PWA install verification.** Out of scope for v0
+  on device-availability grounds (the maintainer does not currently
+  have an Android device on hand for the playtest). Re-opens as a
+  follow-up spec when the device becomes available. The deployed
+  build is expected to install correctly on Android Chrome because
+  the manifest + service worker work the same across Chromium
+  builds, but the spec does not assert it without verification.
+- **Azure Key Vault for the deployment token.** GitHub Actions
+  Secrets is the chosen vault for this feature; see
+  [research.md Q9](./research.md#q9-secrets-management--why-github-actions-secrets-not-azure-key-vault)
+  for the decision rationale.
 
 ## Dependencies
 
