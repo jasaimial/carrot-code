@@ -2,7 +2,9 @@
 
 This feature introduces no gameplay data, no entities, and no persisted state — the project's existing `SaveState` shape (`specs/001-vertical-slice/data-model.md`) is unaffected.
 
-The only structured-data artifact this feature commits is `staticwebapp.config.json` at the repo root. SWA reads it once per deploy and uses it to configure SPA fallback behaviour and HTTP response headers. This file IS the "data model" of this feature.
+The only structured-data artifact this feature commits is `public/staticwebapp.config.json`. SWA reads it from the build-output root (`dist/staticwebapp.config.json` after `vite build`) once per deploy and uses it to configure SPA fallback behaviour and HTTP response headers. This file IS the "data model" of this feature.
+
+**File placement note**: an earlier draft of this spec placed the file at the repo root. SWA requires the config at the build-output root, and Vite only copies files from `public/` to `dist/` (repo-root files are ignored by the build). Putting the file under `public/` is the idiomatic Vite solution — Vite's static-asset pass copies it to `dist/staticwebapp.config.json` automatically, no Vite-config changes needed. The file is publicly addressable at `/staticwebapp.config.json` on the deployed origin (SWA reads it once at request-routing time before serving any content); that's not a secret-leak concern because the file contains routing/caching policy, not credentials.
 
 This document is the field-by-field rationale for that file. It is the source of truth for FR-018 (SPA fallback) and FR-019 (immutable-asset cache headers).
 

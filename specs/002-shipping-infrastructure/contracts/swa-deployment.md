@@ -13,7 +13,7 @@ When the workflow's behaviour changes (e.g., a Node version bump, a switch to OI
 | `package.json` at the repo root | The SWA Action runs `npm ci && npm run build` from this directory. | `app_location: "/"` in the workflow. | Deploy fails: `npm ERR! enoent ENOENT: no such file or directory, open '/github/workspace/package.json'` in the build log. |
 | `package-lock.json` at the repo root | `npm ci` requires it (strictly). | Same. | Deploy fails: `npm ERR! The npm ci command can only install with an existing package-lock.json`. |
 | `npm run build` exits 0 and emits to `dist/` | The SWA Action looks for `output_location` (set to `dist`). | The auto-generated workflow's `output_location: "dist"`. | Deploy fails: `Could not find a valid output location at /github/workspace/dist`. |
-| `staticwebapp.config.json` at the repo root | Optional but expected; without it SWA uses default behaviour and SPA fallback breaks. | FR-018 / FR-019. | Build succeeds but deploy ships without SPA fallback / cache headers — silent UX regression, not a hard failure. **Catch in code review, not at deploy time.** |
+| `public/staticwebapp.config.json` (copied to `dist/staticwebapp.config.json` by Vite's static-asset pass) | Optional but expected; without it SWA uses default behaviour and SPA fallback breaks. | FR-018 / FR-019. | Build succeeds but deploy ships without SPA fallback / cache headers — silent UX regression, not a hard failure. **Catch in code review, not at deploy time.** |
 | `index.html` at the repo root (Vite consumes it) | Vite's entry HTML; not directly consumed by SWA but required for the build to produce a deployable artifact. | Vite itself. | Build fails before SWA sees the output. |
 
 ### GitHub repository secret

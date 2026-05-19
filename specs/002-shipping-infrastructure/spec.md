@@ -334,7 +334,7 @@ requests succeeding.
 
 **SPA routing and caching**
 
-- **FR-018**: A `staticwebapp.config.json` at the repo root MUST
+- **FR-018**: A `public/staticwebapp.config.json` (copied to `dist/staticwebapp.config.json` by Vite's static-asset pass at build time) MUST
   configure the SPA navigation fallback so that every unmatched
   client-side route serves `/index.html` (preserving the deep-link
   behaviour the project's `netlify.toml` currently provides).

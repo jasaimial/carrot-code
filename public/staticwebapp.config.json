@@ -1,0 +1,39 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*",
+      "/icons/*",
+      "/favicon.svg",
+      "/favicon.ico",
+      "/manifest.webmanifest",
+      "/sw.js",
+      "/workbox-*.js",
+      "/registerSW.js",
+      "/robots.txt"
+    ]
+  },
+  "routes": [
+    {
+      "route": "/assets/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/sw.js",
+      "headers": {
+        "Cache-Control": "public, max-age=0, must-revalidate",
+        "Service-Worker-Allowed": "/"
+      }
+    },
+    {
+      "route": "/manifest.webmanifest",
+      "headers": {
+        "Cache-Control": "public, max-age=600",
+        "Content-Type": "application/manifest+json"
+      }
+    }
+  ],
+  "mimeTypes": {}
+}

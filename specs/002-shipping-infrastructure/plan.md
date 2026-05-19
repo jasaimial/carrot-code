@@ -130,7 +130,7 @@ tests/**                                          # No unit-test additions (no n
 
 **Workflow filename**: Azure picks the `<random>` suffix and commits the file directly to the repo on its first run. We do not pick it; we accept whatever Azure produces and treat that filename as stable from that point on (Azure does not re-randomize it on subsequent edits unless the SWA resource is deleted and re-created).
 
-**Structure Decision**: Single-project SPA layout is unchanged from 001's plan. This feature's structural footprint is `staticwebapp.config.json` at the repo root, one `.github/workflows/` addition, a small `public/icons/` directory with four placeholder PNGs, and a new top-level `scripts/` directory containing exactly one file: a one-off Node script (`generate-placeholder-icons.mjs`) using only Node built-in modules to emit the four PNGs above (rationale: preserves the no-new-npm-dependencies invariant and provides a regen path if the colour ever changes; full justification in tasks.md T109).
+**Structure Decision**: Single-project SPA layout is unchanged from 001's plan. This feature's structural footprint is `public/staticwebapp.config.json` (Vite's static-asset pass copies it to `dist/staticwebapp.config.json` at build time, which is where SWA expects the routing config), one `.github/workflows/` addition, a small `public/icons/` directory with four placeholder PNGs, and a new top-level `scripts/` directory containing exactly one file: a one-off Node script (`generate-placeholder-icons.mjs`) using only Node built-in modules to emit the four PNGs above (rationale: preserves the no-new-npm-dependencies invariant and provides a regen path if the colour ever changes; full justification in tasks.md T109).
 
 ## Complexity Tracking
 

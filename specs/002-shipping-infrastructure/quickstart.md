@@ -91,7 +91,7 @@ If you edited anything, commit the change with a message naming the field(s) adj
 
 ## 2. Land `staticwebapp.config.json` and the placeholder icons
 
-Per [data-model.md](./data-model.md), commit a minimal `staticwebapp.config.json` at the repo root with `navigationFallback` + per-route headers for `/assets/*`, `/sw.js`, and `/manifest.webmanifest`.
+Per [data-model.md](./data-model.md), commit a minimal `public/staticwebapp.config.json` (Vite copies `public/` → `dist/` automatically, which is where SWA reads the config at deploy time) with `navigationFallback` + per-route headers for `/assets/*`, `/sw.js`, and `/manifest.webmanifest`.
 
 Generate the four placeholder PNGs (any tool that emits exact pixel dimensions; for example a one-off Node + `sharp` script). Drop them at:
 
