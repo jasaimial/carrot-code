@@ -40,7 +40,7 @@ import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
 import { type LevelId } from "../data/levels/index.js";
-import { t } from "../i18n/index.js";
+import { Hero } from "../entities/hero.js";
 import {
   type AssetDeclaration,
   type AssetService,
@@ -66,6 +66,7 @@ const V0_ASSET_BUDGET_BYTES = 200_000;
 /** Renders a level from its preloaded tilemap JSON + tileset images. */
 export class LevelScene extends Phaser.Scene {
   private levelId: LevelId = "level-01";
+  private hero: Hero | undefined;
 
   public constructor() {
     super({ key: "LevelScene" });
@@ -74,10 +75,27 @@ export class LevelScene extends Phaser.Scene {
   /** Phaser hook — record which level to render. */
   public init(data: LevelSceneData): void {
     this.levelId = data.levelId;
+    this.hero = undefined;
   }
 
   /** Phaser hook — build the tilemap and configure the camera. */
   public create(): void {
+    const tiledJson = this.readTilemapFromCache();
+    const level = this.parseLevelData(tiledJson);
+    const map = this.buildTilemap();
+    const terrainLayer = this.renderTileLayersWithCollision(map);
+    this.spawnHero(level, terrainLayer);
+    this.configureCamera(map);
+    this.setupEndTrigger(level);
+  }
+
+  /** Phaser hook — forward delta to the hero. */
+  public override update(_time: number, dtMs: number): void {
+    this.hero?.update(dtMs);
+  }
+
+  /** Pull the cached Tiled JSON for the active level. */
+  private readTilemapFromCache(): object {
     // Phaser's tilemap cache returns an untyped `any`; the wrapped
     // entry carries the parsed JSON on `.data`. Narrow once here so
     // the rest of the scene works with `object`.
@@ -89,28 +107,21 @@ export class LevelScene extends Phaser.Scene {
           "BootScene should have preloaded it before transitioning.",
       );
     }
+    return tiledJson;
+  }
 
-    // Parse the .tmj into typed LevelData. Throws LevelLoadError on
-    // any contract violation; we let it propagate so the failure is
-    // visible in dev console rather than masked by a half-built scene.
-    let level: LevelData;
+  /** Parse the .tmj into typed LevelData (throws on contract violation). */
+  private parseLevelData(tiledJson: object): LevelData {
     try {
-      level = loadLevel(tiledJson, this.levelId, this.levelId, V0_ASSET_BUDGET_BYTES);
+      return loadLevel(tiledJson, this.levelId, this.levelId, V0_ASSET_BUDGET_BYTES);
     } catch (err) {
       if (err instanceof LevelLoadError) {
-        // Re-throw with extra context so the dev console makes it clear
-        // which level the loader rejected.
         throw new Error(`LevelScene: failed to load "${this.levelId}": ${err.message}`, {
           cause: err,
         });
       }
       throw err;
     }
-
-    const map = this.buildTilemap();
-    this.renderTileLayers(map);
-    this.configureCamera(map, level);
-    this.drawDevCaption();
   }
 
   /** Build the Phaser tilemap and bind every embedded tileset to its image. */
@@ -138,51 +149,92 @@ export class LevelScene extends Phaser.Scene {
   }
 
   /**
-   * Create a Phaser display layer for every tile layer in the map.
-   * For v0 there is only `terrain`; future layers (decoration,
-   * foreground) will land here too.
+   * Create a Phaser display layer for every tile layer in the map
+   * and return the `terrain` layer specifically (the one the hero
+   * collides with). For v0 there is only `terrain`; future layers
+   * (decoration, foreground) will land here too without colliding.
    */
-  private renderTileLayers(map: Phaser.Tilemaps.Tilemap): void {
+  private renderTileLayersWithCollision(
+    map: Phaser.Tilemaps.Tilemap,
+  ): Phaser.Tilemaps.TilemapLayer {
     const allTilesets = map.tilesets;
+    let terrainLayer: Phaser.Tilemaps.TilemapLayer | null = null;
     for (const layerData of map.layers) {
-      // `createLayer` is typed non-nullable by Phaser but in practice
-      // returns null on bad input; we have no way for that to happen
-      // here (tilesets bound above, layer iterated from map.layers).
-      map.createLayer(layerData.name, allTilesets, 0, 0);
+      const layer = map.createLayer(layerData.name, allTilesets, 0, 0);
+      // Phaser 4 may return a TilemapGPULayer variant; narrow to the
+      // classic TilemapLayer (which is what arcade physics expects).
+      const classic = layer instanceof Phaser.Tilemaps.TilemapLayer ? layer : null;
+      if (classic !== null && layerData.name === "terrain") {
+        // Every non-zero tile id in the terrain layer is solid.
+        classic.setCollisionByExclusion([-1, 0]);
+        terrainLayer = classic;
+      }
     }
+    if (terrainLayer === null) {
+      throw new Error("LevelScene: required tile layer `terrain` not found on the map.");
+    }
+    return terrainLayer;
   }
 
   /**
-   * Set the world + camera bounds to the level size and center the
-   * camera on the hero spawn point. When the hero entity lands (T033)
-   * the camera will switch to follow-mode.
+   * Instantiate the hero at the spawn point and add a collider against
+   * the terrain layer. Stored on `this.hero` so `update()` can drive it.
    */
-  private configureCamera(map: Phaser.Tilemaps.Tilemap, level: LevelData): void {
+  private spawnHero(level: LevelData, terrainLayer: Phaser.Tilemaps.TilemapLayer): void {
+    this.hero = new Hero(this, level.spawn.x, level.spawn.y);
+    this.physics.add.collider(this.hero, terrainLayer);
+  }
+
+  /**
+   * Set the world + camera bounds to the level size and have the
+   * camera follow the hero. The hero must be spawned first.
+   */
+  private configureCamera(map: Phaser.Tilemaps.Tilemap): void {
     const worldWidth = map.widthInPixels;
     const worldHeight = map.heightInPixels;
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
-    this.cameras.main.centerOn(level.spawn.x, level.spawn.y);
+    if (this.hero !== undefined) {
+      // `roundPixels` = true keeps the camera from sub-pixel-jittering
+      // the rendered tilemap as the hero moves.
+      this.cameras.main.startFollow(this.hero, true);
+    }
   }
 
   /**
-   * Small dev caption explaining the missing pieces. Drawn in screen
-   * (camera-ignored) space so it stays put as the camera scrolls.
-   * Removed when T033 ships and replaced by HUD in T035.
+   * Add an Arcade-physics overlap on the level's end-trigger rectangle.
+   * When the hero overlaps, transition to GameOverScene with the
+   * level-complete outcome (FR-024 / FR-025).
    */
-  private drawDevCaption(): void {
-    const caption = this.add
-      .text(this.scale.width / 2, 24, t("dev.levelLoaded"), {
-        fontFamily: "monospace",
-        fontSize: "14px",
-        color: PALETTE_HEX.textCream,
-        align: "center",
-        backgroundColor: PALETTE_HEX.bgDialog,
-        padding: { x: 8, y: 6 },
-      })
-      .setOrigin(0.5, 0)
-      .setScrollFactor(0);
-    caption.setDepth(1000);
+  private setupEndTrigger(level: LevelData): void {
+    if (this.hero === undefined) {
+      return;
+    }
+    // Build an invisible static body matching the trigger rectangle.
+    const { x, y, w, h } = level.endTrigger;
+    const trigger = this.add.zone(x + w / 2, y + h / 2, w, h);
+    this.physics.add.existing(trigger, true);
+
+    this.physics.add.overlap(this.hero, trigger, () => {
+      // Idempotent: scene.start unloads this scene before starting the next,
+      // but the overlap may fire several frames in a row before the unload
+      // completes. Pause to ensure no more updates.
+      this.scene.pause();
+      this.scene.start("GameOverScene", {
+        outcome: "complete",
+        levelId: this.levelId,
+      });
+    });
+
+    // Subtle visual hint at the end-trigger so the player can see where
+    // to head. A rectangle outline; no fill, no animation.
+    const outline = this.add.rectangle(x + w / 2, y + h / 2, w, h);
+    outline.setStrokeStyle(2, this.parseHexToNumber(PALETTE_HEX.uiCarrot), 0.8);
+  }
+
+  /** CSS hex string -> Phaser numeric color (0xRRGGBB). */
+  private parseHexToNumber(hex: string): number {
+    return Number.parseInt(hex.slice(1), 16);
   }
 
   /** Retrieve the AssetService BootScene seeded onto the registry. */
