@@ -123,6 +123,15 @@ export class BootScene extends Phaser.Scene {
       this.scene.start("LevelScene", { levelId: this.levelId });
     });
     this.load.start();
+
+    // Defensive: on a restart (Play-again), every asset key is already
+    // in Phaser's cache, so the loader skips them all and the queue
+    // ends up empty. In that case `complete` does NOT fire reliably
+    // across Phaser versions and BootScene gets stuck on "Loading…".
+    // Detect the empty-queue case and transition directly.
+    if (this.load.totalToLoad === 0) {
+      this.scene.start("LevelScene", { levelId: this.levelId });
+    }
   }
 
   /**

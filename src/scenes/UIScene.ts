@@ -43,6 +43,7 @@ import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-inpu
 import {
   REGISTRY_KEY_CARROT_COUNT,
   REGISTRY_KEY_HERO_LIVES,
+  REGISTRY_KEY_NARRATOR_TEXT,
   REGISTRY_KEY_POWERUP_REMAINING_MS,
 } from "./LevelScene.js";
 
@@ -64,6 +65,12 @@ export class UIScene extends Phaser.Scene {
   private carrotCountText: Phaser.GameObjects.Text | undefined;
   /** Text object for the power-up timer (visible only when timer > 0). */
   private powerTimerText: Phaser.GameObjects.Text | undefined;
+  /** Container holding the narrator dialog box. Built lazily. */
+  private narratorContainer: Phaser.GameObjects.Container | undefined;
+  /** The body text inside the narrator dialog box. */
+  private narratorBodyText: Phaser.GameObjects.Text | undefined;
+  /** Whether a narrator dialog is currently visible. */
+  private narratorVisible = false;
 
   public constructor() {
     super({ key: "UIScene" });
@@ -341,6 +348,7 @@ export class UIScene extends Phaser.Scene {
     this.buildHearts(this.readLives());
     this.buildCarrotCounter(this.readCarrots());
     this.buildPowerTimer();
+    this.setupNarratorSubscription();
 
     // Re-render hearts when LevelScene publishes a new life count.
     this.registry.events.on(
@@ -468,5 +476,113 @@ export class UIScene extends Phaser.Scene {
   private readCarrots(): number {
     const v = this.registry.get(REGISTRY_KEY_CARROT_COUNT) as unknown;
     return typeof v === "number" ? v : 0;
+  }
+
+  // ---------- Narrator dialog (T049) ---------------------------------------
+
+  /** Watch the narrator text registry key and show/hide accordingly. */
+  private setupNarratorSubscription(): void {
+    this.registry.events.on(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_NARRATOR_TEXT,
+      (_parent: unknown, value: unknown) => {
+        if (typeof value !== "string") {
+          return;
+        }
+        if (value === "") {
+          this.hideNarrator();
+        } else {
+          this.showNarrator(value);
+        }
+      },
+    );
+    // Surface an already-active beat if UIScene launches after LevelScene
+    // has already published one (e.g. fast spawn + delayMs == 0).
+    const initial = this.registry.get(REGISTRY_KEY_NARRATOR_TEXT) as unknown;
+    if (typeof initial === "string" && initial !== "") {
+      this.showNarrator(initial);
+    }
+  }
+
+  /** Lazily build the dialog container; subsequent calls just update text. */
+  private showNarrator(text: string): void {
+    if (this.narratorContainer === undefined) {
+      this.buildNarratorContainer();
+    }
+    this.narratorBodyText?.setText(text);
+    this.narratorContainer?.setVisible(true);
+    this.narratorVisible = true;
+  }
+
+  /** Hide the dialog (kept around for reuse on the next beat). */
+  private hideNarrator(): void {
+    this.narratorContainer?.setVisible(false);
+    this.narratorVisible = false;
+  }
+
+  /** Build the dialog box + dismiss affordance + input wiring. */
+  private buildNarratorContainer(): void {
+    const { width, height } = this.scale;
+    const boxW = Math.min(width - 32, 520);
+    const boxH = 96;
+    const cx = width / 2;
+    const cy = height - boxH / 2 - 16;
+
+    const bg = this.add
+      .rectangle(cx, cy, boxW, boxH, this.hexToNumber(PALETTE_HEX.bgDialog), 0.92)
+      .setStrokeStyle(2, this.hexToNumber(PALETTE_HEX.textCream), 0.8)
+      .setScrollFactor(0);
+
+    this.narratorBodyText = this.add
+      .text(cx, cy - 12, "", {
+        fontFamily: "monospace",
+        fontSize: "16px",
+        color: PALETTE_HEX.textCream,
+        align: "center",
+        wordWrap: { width: boxW - 24 },
+      })
+      .setOrigin(0.5, 0.5)
+      .setScrollFactor(0);
+
+    const hintKey = this.add
+      .text(cx, cy + boxH / 2 - 14, t("dialog.dismissKey"), {
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: PALETTE_HEX.textCream,
+      })
+      .setOrigin(0.5, 0.5)
+      .setAlpha(0.85)
+      .setScrollFactor(0);
+
+    // Make the whole box tap-to-dismiss on touch (and click on desktop).
+    bg.setInteractive({ useHandCursor: true });
+    bg.on(Phaser.Input.Events.POINTER_DOWN, () => {
+      this.dismissNarrator();
+    });
+
+    // Keyboard: Space / Enter dismisses while dialog is visible.
+    if (this.input.keyboard !== null) {
+      this.input.keyboard.on("keydown-SPACE", () => {
+        if (this.narratorVisible) {
+          this.dismissNarrator();
+        }
+      });
+      this.input.keyboard.on("keydown-ENTER", () => {
+        if (this.narratorVisible) {
+          this.dismissNarrator();
+        }
+      });
+    }
+
+    this.narratorContainer = this.add
+      .container(0, 0, [bg, this.narratorBodyText, hintKey])
+      .setDepth(1500);
+  }
+
+  /** Clear the registry key so LevelScene knows the beat was dismissed. */
+  private dismissNarrator(): void {
+    if (!this.narratorVisible) {
+      return;
+    }
+    this.registry.set(REGISTRY_KEY_NARRATOR_TEXT, "");
   }
 }

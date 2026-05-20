@@ -39,6 +39,7 @@
 import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
+import { getNarratorBeatsForLevel } from "../data/narrator-beats.js";
 import { type LevelId } from "../data/levels/index.js";
 import { Enemy } from "../entities/enemy.js";
 import { Hero } from "../entities/hero.js";
@@ -50,6 +51,7 @@ import {
 } from "../services/asset-service.js";
 import { loadLevel, LevelLoadError } from "../services/level-loader.js";
 import { type SaveService } from "../services/save-service.js";
+import { evaluateNarratorTrigger } from "../systems/narrator-trigger.js";
 import type { LevelData } from "../types/level.js";
 
 import { REGISTRY_KEY_ASSET_SERVICE } from "./BootScene.js";
@@ -61,6 +63,12 @@ export const REGISTRY_KEY_HERO_LIVES = "heroLives";
 export const REGISTRY_KEY_CARROT_COUNT = "carrotCount";
 /** Registry-event key the HUD listens to for powerup remaining ms. */
 export const REGISTRY_KEY_POWERUP_REMAINING_MS = "powerupRemainingMs";
+/**
+ * Registry-event key the HUD listens to for narrator dialog.
+ * Value is the active beat text, or empty string when no dialog is showing.
+ * UIScene clears it (sets "") on dismiss; LevelScene treats that as ack.
+ */
+export const REGISTRY_KEY_NARRATOR_TEXT = "narratorText";
 
 /** What this scene expects in its `init(data)` call. */
 interface LevelSceneData {
@@ -81,6 +89,10 @@ export class LevelScene extends Phaser.Scene {
   private readonly enemies: Enemy[] = [];
   private carrotsCollected = 0;
   private hasEnded = false;
+  private spawnTimeMs = 0;
+  private level: LevelData | undefined;
+  private readonly firedBeatIds = new Set<string>();
+  private activeBeatId: string | undefined;
 
   public constructor() {
     super({ key: "LevelScene" });
@@ -93,21 +105,30 @@ export class LevelScene extends Phaser.Scene {
     this.enemies.length = 0;
     this.carrotsCollected = 0;
     this.hasEnded = false;
+    this.spawnTimeMs = 0;
+    this.level = undefined;
+    this.firedBeatIds.clear();
+    this.activeBeatId = undefined;
     // Seed HUD state on the registry; UIScene reads + watches it.
     this.registry.set(REGISTRY_KEY_CARROT_COUNT, 0);
     this.registry.set(REGISTRY_KEY_POWERUP_REMAINING_MS, 0);
+    // Narrator dialog hidden on (re)start (T050: replay re-fires beats).
+    this.registry.set(REGISTRY_KEY_NARRATOR_TEXT, "");
   }
 
   /** Phaser hook — build the tilemap and configure the camera. */
   public create(): void {
     const tiledJson = this.readTilemapFromCache();
     const level = this.parseLevelData(tiledJson);
+    this.level = level;
     const map = this.buildTilemap();
     const terrainLayer = this.renderTileLayersWithCollision(map);
     this.spawnHero(level, terrainLayer);
+    this.spawnTimeMs = this.time.now;
     this.dispatchEntities(level, terrainLayer);
     this.configureCamera(map);
     this.setupEndTrigger(level);
+    this.setupNarratorDismissWatch();
     // UIScene runs in parallel above this one, drawing touch buttons
     // (on touch devices) + the portrait-rotate prompt (on portrait) +
     // the HUD (hearts + carrot count).
@@ -134,6 +155,50 @@ export class LevelScene extends Phaser.Scene {
         this.registry.set(REGISTRY_KEY_POWERUP_REMAINING_MS, remaining);
       }
     }
+    this.evaluateNarratorBeats();
+  }
+
+  /**
+   * Iterate authored beats once per frame; fire the first eligible
+   * unfired beat by publishing its text. Only one beat shows at a time;
+   * dismiss is acknowledged via the registry-clear callback below.
+   */
+  private evaluateNarratorBeats(): void {
+    if (this.level === undefined || this.hero === undefined) {
+      return;
+    }
+    if (this.activeBeatId !== undefined) {
+      return;
+    }
+    const elapsed = this.time.now - this.spawnTimeMs;
+    const heroPos = { x: this.hero.x, y: this.hero.y };
+    for (const beat of this.level.narratorBeats) {
+      if (this.firedBeatIds.has(beat.id)) {
+        continue;
+      }
+      if (evaluateNarratorTrigger(beat, elapsed, heroPos, [])) {
+        this.activeBeatId = beat.id;
+        this.firedBeatIds.add(beat.id);
+        this.registry.set(REGISTRY_KEY_NARRATOR_TEXT, beat.text);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Watch for UIScene clearing the narrator text (its dismiss path).
+   * When that happens, drop the active beat so the next eligible one
+   * can fire.
+   */
+  private setupNarratorDismissWatch(): void {
+    this.registry.events.on(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_NARRATOR_TEXT,
+      (_parent: unknown, value: unknown) => {
+        if (typeof value === "string" && value === "") {
+          this.activeBeatId = undefined;
+        }
+      },
+    );
   }
 
   /** Pull the cached Tiled JSON for the active level. */
@@ -155,7 +220,13 @@ export class LevelScene extends Phaser.Scene {
   /** Parse the .tmj into typed LevelData (throws on contract violation). */
   private parseLevelData(tiledJson: object): LevelData {
     try {
-      return loadLevel(tiledJson, this.levelId, this.levelId, V0_ASSET_BUDGET_BYTES);
+      const parsed = loadLevel(tiledJson, this.levelId, this.levelId, V0_ASSET_BUDGET_BYTES);
+      // Narrator content is authored in src/data/narrator-beats.ts (T047).
+      // Loader remains Tiled-focused and scene composes in per-level beats.
+      return Object.freeze({
+        ...parsed,
+        narratorBeats: getNarratorBeatsForLevel(this.levelId),
+      });
     } catch (err) {
       if (err instanceof LevelLoadError) {
         throw new Error(`LevelScene: failed to load "${this.levelId}": ${err.message}`, {

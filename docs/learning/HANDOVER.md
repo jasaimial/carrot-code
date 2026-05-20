@@ -1,8 +1,8 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-19 (US2 feature-complete: powerup + SaveService)
+**Last updated:** 2026-05-20 (US3 kickoff: narrator beat data + trigger evaluator)
 **Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) and `main`
-**Current task:** **US2 feature-complete pending T046 sign-off.** Powerup pickup grants temporary invincibility (hero tints gold, slime contact passes through, top-center HUD timer ticks down), SaveService persists `completedLevelIds` + `lifetimeCarrots` to `localStorage` on every level-complete. Final step: maintainer walks [the full US2 playtest](../../specs/001-vertical-slice/playtests/us2.md) including the new powerup + persistence sections, signs off, then US3 (narrator) opens at T047.
+**Current task:** **US3 minimal feature-complete pending T051 sign-off.** Narrator beat data lives in `src/data/narrator-beats.ts`, pure trigger evaluator in `src/systems/narrator-trigger.ts` (3 tests), dialog rendering + Space/Enter/tap dismiss in `UIScene`, replay-reset wired in `LevelScene.init` so beats re-fire on Play-again. Also fixed a Play-again "Loading…" hang in `BootScene` (empty loader queue on restart no longer waits for a `complete` event that never fires). Final step: maintainer walks [the US3 playtest checklist](../../specs/001-vertical-slice/playtests/us3.md), signs off, then visual pass + adaptive-narrator prototype per the stay-the-course addendum below.
 **Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice`)
 **Local dev:** `npm run dev` → walk right, collect carrots on the platforms, grab the gold powerup, run through the slime without taking damage while it's active, reach end-trigger. After complete, dev-tools → Application → Local Storage shows `carrot-code:v1:save` with your progress.
 
@@ -195,6 +195,27 @@ tests/
 
 Natural stopping points: after T046 sign-off (US2 done, MVP shipped),
 after T049 (narrator demoable), after T051 (US3 sign-off).
+
+## Stay-the-course sprint addendum (visual tone + identity, low drift)
+
+Goal: keep the original 001 roadmap intact while introducing the reference
+visual direction and a clearer unique value signal.
+
+- **Work split: 80/20.**
+  - 80%: planned roadmap execution (US3 T047 → T051).
+  - 20%: low-risk polish/identity work that does not fork architecture.
+- **Execution order for this sprint:**
+  1. Land **US3 minimal** first (T047 narrator beat data, then T048/T049).
+  2. Define **Art Direction v0.1** in existing docs/code comments only:
+     limited palette, silhouette readability, 3 depth layers.
+  3. Apply **Visual Pass 1** (small, reversible): background gradient,
+     stronger silhouette contrast, 2-3 effects max.
+  4. Prototype one differentiator behind a toggle: **adaptive narrator tone**
+     reacting to cautious vs reckless play.
+- **Guardrail:** no large content expansion (extra levels, bosses, heavy
+  lore) until one polished level proves tone + narrator + one unique hook.
+- **Decision gate after each playtest:** "Does this still feel like the
+  original roadmap, only clearer and more distinctive?"
 
 Natural stopping points: after T029/T030 (level data + registry), after
 T032 (BootScene actually loads things), after T034 (hero can move on
