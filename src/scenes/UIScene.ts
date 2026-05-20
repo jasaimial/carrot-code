@@ -67,6 +67,16 @@ export class UIScene extends Phaser.Scene {
       return;
     }
 
+    // ---------- Multi-touch slots ----------
+    // Phaser defaults to ONE active pointer. With only one slot, pressing
+    // a second button while a first is still held does nothing until the
+    // first releases — and there's a perceptible delay after the release
+    // before the second tap registers (Phaser is busy re-assigning the
+    // pointer slot). We need at least 2 simultaneous fingers (e.g. right
+    // + jump); allocating 3 gives headroom (left/right + jump + spare).
+    // Must be called BEFORE any pointer listeners are attached.
+    this.input.addPointer(2);
+
     this.buildButton(
       UI.touchLeftButtonLeftPx,
       this.scale.height - UI.touchButtonBottomPx,
@@ -87,6 +97,7 @@ export class UIScene extends Phaser.Scene {
     );
 
     this.setupPortraitWatch();
+    this.tryLockLandscape();
   }
 
   /** Phaser hook — clean up the MediaQueryList listener. */
@@ -166,6 +177,47 @@ export class UIScene extends Phaser.Scene {
     bg.on(Phaser.Input.Events.POINTER_UP, release);
     bg.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, release);
     bg.on(Phaser.Input.Events.POINTER_OUT, release);
+  }
+
+  /**
+   * Best-effort attempt to lock the screen orientation to landscape.
+   *
+   * Browser support is patchy:
+   *   - Installed PWAs (Add to Home Screen) respect the manifest's
+   *     `orientation: "landscape"` declaration. No JS needed.
+   *   - In-browser Chrome on Android: lock() succeeds only when the
+   *     document is in fullscreen mode. We don't force fullscreen
+   *     here (that would surprise the player); the lock attempt
+   *     fails silently and the portrait-rotate prompt is the user-
+   *     facing fallback.
+   *   - iOS Safari (in-browser): `screen.orientation.lock` is not
+   *     supported. Throws or rejects. Caught silently.
+   *
+   * We attempt it from create() (after the first user gesture on the
+   * Play-again button or any earlier gameplay tap that brought the
+   * player here from BootScene). Most browsers count that as enough
+   * of a gesture. If they don't, no harm done.
+   */
+  private tryLockLandscape(): void {
+    // Feature-detect: `screen.orientation` is non-nullable in modern
+    // type defs but might be undefined on older browsers. Coerce to
+    // the loose shape to handle both, then check `lock` is a function.
+    const orientation = window.screen.orientation as ScreenOrientation | undefined;
+    if (orientation === undefined || typeof orientation.lock !== "function") {
+      return;
+    }
+    // `lock()` returns a Promise that rejects on unsupported / wrong
+    // state. Swallow silently — the visual prompt is the fallback.
+    try {
+      void orientation.lock("landscape").catch(() => {
+        // Intentionally empty: this is the expected path on iOS
+        // Safari and on Android Chrome outside fullscreen mode. The
+        // portrait-rotate overlay handles the user-facing message.
+      });
+    } catch {
+      // Intentionally empty: some browsers throw synchronously instead
+      // of rejecting. Same fallback applies.
+    }
   }
 
   /**
