@@ -42,3 +42,5 @@ Thumbs.db
 # (uncomment if .ase files get large)
 # *.ase
 # *.aseprite
+
+.commit-msg.tmp
