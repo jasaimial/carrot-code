@@ -40,7 +40,9 @@ import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
 import { type LevelId } from "../data/levels/index.js";
+import { Enemy } from "../entities/enemy.js";
 import { Hero } from "../entities/hero.js";
+import { createPickup } from "../entities/pickup.js";
 import {
   type AssetDeclaration,
   type AssetService,
@@ -50,6 +52,11 @@ import { loadLevel, LevelLoadError } from "../services/level-loader.js";
 import type { LevelData } from "../types/level.js";
 
 import { REGISTRY_KEY_ASSET_SERVICE } from "./BootScene.js";
+
+/** Registry-event key the HUD listens to for hero-lives changes. */
+export const REGISTRY_KEY_HERO_LIVES = "heroLives";
+/** Registry-event key the HUD listens to for carrot-count changes. */
+export const REGISTRY_KEY_CARROT_COUNT = "carrotCount";
 
 /** What this scene expects in its `init(data)` call. */
 interface LevelSceneData {
@@ -67,6 +74,9 @@ const V0_ASSET_BUDGET_BYTES = 200_000;
 export class LevelScene extends Phaser.Scene {
   private levelId: LevelId = "level-01";
   private hero: Hero | undefined;
+  private readonly enemies: Enemy[] = [];
+  private carrotsCollected = 0;
+  private hasEnded = false;
 
   public constructor() {
     super({ key: "LevelScene" });
@@ -76,6 +86,11 @@ export class LevelScene extends Phaser.Scene {
   public init(data: LevelSceneData): void {
     this.levelId = data.levelId;
     this.hero = undefined;
+    this.enemies.length = 0;
+    this.carrotsCollected = 0;
+    this.hasEnded = false;
+    // Seed HUD state on the registry; UIScene reads + watches it.
+    this.registry.set(REGISTRY_KEY_CARROT_COUNT, 0);
   }
 
   /** Phaser hook — build the tilemap and configure the camera. */
@@ -85,17 +100,24 @@ export class LevelScene extends Phaser.Scene {
     const map = this.buildTilemap();
     const terrainLayer = this.renderTileLayersWithCollision(map);
     this.spawnHero(level, terrainLayer);
+    this.dispatchEntities(level, terrainLayer);
     this.configureCamera(map);
     this.setupEndTrigger(level);
     // UIScene runs in parallel above this one, drawing touch buttons
-    // (on touch devices) + the portrait-rotate prompt (on portrait).
+    // (on touch devices) + the portrait-rotate prompt (on portrait) +
+    // the HUD (hearts + carrot count).
     // `launch` (not `start`) so this scene keeps running.
     this.scene.launch("UIScene");
+    // Initial HUD seed (after hero exists).
+    this.publishHeroLives();
   }
 
-  /** Phaser hook — forward delta to the hero. */
+  /** Phaser hook — forward delta to the hero + each enemy. */
   public override update(_time: number, dtMs: number): void {
     this.hero?.update(dtMs);
+    for (const enemy of this.enemies) {
+      enemy.update(dtMs);
+    }
   }
 
   /** Pull the cached Tiled JSON for the active level. */
@@ -220,23 +242,96 @@ export class LevelScene extends Phaser.Scene {
     this.physics.add.existing(trigger, true);
 
     this.physics.add.overlap(this.hero, trigger, () => {
-      // Idempotent: scene.start unloads this scene before starting the next,
-      // but the overlap may fire several frames in a row before the unload
-      // completes. Pause to ensure no more updates.
-      this.scene.pause();
-      // Stop the UIScene that this level launched, so its touch buttons
-      // and portrait overlay don't sit on top of GameOverScene.
-      this.scene.stop("UIScene");
-      this.scene.start("GameOverScene", {
-        outcome: "complete",
-        levelId: this.levelId,
-      });
+      // `endLevel` is idempotent so multi-frame overlap before unload
+      // doesn't double-fire.
+      this.endLevel("complete");
     });
 
     // Subtle visual hint at the end-trigger so the player can see where
     // to head. A rectangle outline; no fill, no animation.
     const outline = this.add.rectangle(x + w / 2, y + h / 2, w, h);
     outline.setStrokeStyle(2, this.parseHexToNumber(PALETTE_HEX.uiCarrot), 0.8);
+  }
+
+  /**
+   * Walk every entity in the loaded level and instantiate the matching
+   * runtime object (Enemy sprite + collider, carrot pickup + overlap,
+   * etc.). Exhaustive switch on `kind` gives compile-time coverage:
+   * adding a new EntityConfig variant errors here until handled.
+   */
+  private dispatchEntities(level: LevelData, terrainLayer: Phaser.Tilemaps.TilemapLayer): void {
+    if (this.hero === undefined) {
+      return;
+    }
+    const hero = this.hero;
+
+    for (const entity of level.entities) {
+      switch (entity.kind) {
+        case "enemy": {
+          const enemy = new Enemy(this, entity.x, entity.y, entity);
+          this.enemies.push(enemy);
+          // Enemy collides with terrain so it doesn't fall off platforms.
+          this.physics.add.collider(enemy, terrainLayer);
+          // Hero × enemy: hero takes a hit, knocked back from enemy x.
+          this.physics.add.overlap(hero, enemy, () => {
+            this.onHeroEnemyOverlap(enemy.x);
+          });
+          break;
+        }
+        case "carrot": {
+          const { sprite, onCollect } = createPickup(this, entity.x, entity.y, entity);
+          this.physics.add.overlap(hero, sprite, () => {
+            onCollect();
+            this.carrotsCollected += 1;
+            this.registry.set(REGISTRY_KEY_CARROT_COUNT, this.carrotsCollected);
+          });
+          break;
+        }
+        case "powerup": {
+          // Pickup factory throws on powerup in v0 (next-commit wiring).
+          // Tile-author can still place powerups; v0 just skips them
+          // visually so authoring isn't blocked.
+          console.warn(`LevelScene: skipping powerup "${entity.id}" (not yet wired in v0)`);
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * Hero × enemy overlap handler. The hero's invulnerability window
+   * filters repeat hits, so this just delegates to `takeHit()` and
+   * routes to GameOverScene on the gameover outcome.
+   */
+  private onHeroEnemyOverlap(enemyX: number): void {
+    if (this.hero === undefined || this.hasEnded) {
+      return;
+    }
+    const outcome = this.hero.takeHit(enemyX);
+    if (outcome === "hurt") {
+      this.publishHeroLives();
+    } else if (outcome === "gameover") {
+      this.publishHeroLives();
+      this.endLevel("gameover");
+    }
+  }
+
+  /** Push the hero's current lives count onto the registry for the HUD. */
+  private publishHeroLives(): void {
+    if (this.hero !== undefined) {
+      this.registry.set(REGISTRY_KEY_HERO_LIVES, this.hero.getLives());
+    }
+  }
+
+  /** Shared exit path used by both end-trigger and gameover. */
+  private endLevel(outcome: "complete" | "gameover"): void {
+    if (this.hasEnded) {
+      return;
+    }
+    this.hasEnded = true;
+    this.scene.pause();
+    this.scene.stop("UIScene");
+    this.scene.start("GameOverScene", { outcome, levelId: this.levelId });
   }
 
   /** CSS hex string -> Phaser numeric color (0xRRGGBB). */

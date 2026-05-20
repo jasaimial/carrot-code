@@ -27,6 +27,10 @@ export interface EnemyConfig {
   readonly id: string;
   /** Asset key declared in AssetService. */
   readonly spriteKey: string;
+  /** Spawn x in world coordinates (from the Tiled object). */
+  readonly x: number;
+  /** Spawn y in world coordinates (from the Tiled object). */
+  readonly y: number;
   /** Patrol behaviour in world coordinates. */
   readonly patrol: {
     /** Axis the enemy patrols along. */
@@ -54,6 +58,10 @@ export interface CarrotConfig {
   readonly id: string;
   /** Asset key declared in AssetService. */
   readonly spriteKey: string;
+  /** Spawn x in world coordinates (from the Tiled object). */
+  readonly x: number;
+  /** Spawn y in world coordinates (from the Tiled object). */
+  readonly y: number;
 }
 
 /**
@@ -70,6 +78,10 @@ export interface PowerupConfig {
   readonly id: string;
   /** Asset key declared in AssetService. */
   readonly spriteKey: string;
+  /** Spawn x in world coordinates (from the Tiled object). */
+  readonly x: number;
+  /** Spawn y in world coordinates (from the Tiled object). */
+  readonly y: number;
   /** Effect granted on pickup. */
   readonly effect: "invincibility";
   /** Effect duration in milliseconds; tuned in src/config/powerups.ts. */

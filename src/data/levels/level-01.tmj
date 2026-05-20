@@ -72,6 +72,82 @@
                  "width":36,
                  "x":1026,
                  "y":252
+                },
+                {
+                 "height":0,
+                 "id":8,
+                 "name":"slime-1",
+                 "opacity":1,
+                 "point":true,
+                 "properties":[
+                        {"name":"kind","type":"string","value":"enemy"},
+                        {"name":"id","type":"string","value":"slime-1"},
+                        {"name":"spriteKey","type":"string","value":"enemy-pixel-platformer-character-b"},
+                        {"name":"patrolAxis","type":"string","value":"horizontal"},
+                        {"name":"patrolSpeedPxPerSec","type":"float","value":60},
+                        {"name":"patrolMin","type":"float","value":576},
+                        {"name":"patrolMax","type":"float","value":810}
+                        ],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":684,
+                 "y":294
+                },
+                {
+                 "height":0,
+                 "id":9,
+                 "name":"carrot-1",
+                 "opacity":1,
+                 "point":true,
+                 "properties":[
+                        {"name":"kind","type":"string","value":"carrot"},
+                        {"name":"id","type":"string","value":"carrot-1"},
+                        {"name":"spriteKey","type":"string","value":"icons-pixel-platformer-tiles"}
+                        ],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":135,
+                 "y":261
+                },
+                {
+                 "height":0,
+                 "id":10,
+                 "name":"carrot-2",
+                 "opacity":1,
+                 "point":true,
+                 "properties":[
+                        {"name":"kind","type":"string","value":"carrot"},
+                        {"name":"id","type":"string","value":"carrot-2"},
+                        {"name":"spriteKey","type":"string","value":"icons-pixel-platformer-tiles"}
+                        ],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":279,
+                 "y":243
+                },
+                {
+                 "height":0,
+                 "id":11,
+                 "name":"carrot-3",
+                 "opacity":1,
+                 "point":true,
+                 "properties":[
+                        {"name":"kind","type":"string","value":"carrot"},
+                        {"name":"id","type":"string","value":"carrot-3"},
+                        {"name":"spriteKey","type":"string","value":"icons-pixel-platformer-tiles"}
+                        ],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":495,
+                 "y":225
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -80,7 +156,7 @@
          "y":0
         }],
  "nextlayerid":3,
- "nextobjectid":8,
+ "nextobjectid":12,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.1",

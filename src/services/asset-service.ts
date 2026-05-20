@@ -186,4 +186,47 @@ const ASSETS: readonly AssetDeclaration[] = Object.freeze([
     frameHeight: 24,
     approxBytes: 1990,
   },
+
+  // -------------------------------------------------------------------------
+  // T039 (US2) — Same character PNG re-declared as a separate asset key
+  // for the enemy sprite. Phaser keys assets by string; the same source
+  // PNG can be bound to multiple keys with different frame defaults.
+  // Cost: zero (Phaser dedups image loads internally when the URL matches).
+  // -------------------------------------------------------------------------
+  /**
+   * Enemy sprite. Uses the SAME character sheet PNG but a different
+   * default frame to give it visual identity distinct from the hero.
+   * Frame is picked at sprite-construction time (see src/entities/enemy.ts);
+   * `DEFAULT_FRAME` documents the v0 choice + makes it easy to swap.
+   */
+  {
+    key: "enemy-pixel-platformer-character-b",
+    type: "spritesheet",
+    url: "assets/sprites/kenney-pixel-platformer/tilemap-characters_packed.png",
+    frameWidth: 24,
+    frameHeight: 24,
+    approxBytes: 1990,
+  },
+
+  // -------------------------------------------------------------------------
+  // T040 (US2) — Tileset PNG also bound as a spritesheet so we can pull
+  // individual 18×18 tiles out as standalone sprites (carrot pickup +
+  // heart icon for HUD). Same PNG as the tileset above; Phaser dedups.
+  // -------------------------------------------------------------------------
+  /**
+   * Tileset PNG bound as a spritesheet so HUD glyphs (heart, carrot
+   * counter icon) and pickup sprites can use a specific tile by
+   * frame index. The Pixel Platformer pack ships items (hearts,
+   * gems, fruit) in the lower rows of the tilesheet — pick the
+   * exact frame by inspecting `tilemap_packed.png` in any image
+   * viewer; tiles are 18×18 packed 20-per-row.
+   */
+  {
+    key: "icons-pixel-platformer-tiles",
+    type: "spritesheet",
+    url: "assets/tilemaps/kenney-pixel-platformer/tilemap_packed.png",
+    frameWidth: 18,
+    frameHeight: 18,
+    approxBytes: 5913,
+  },
 ]);

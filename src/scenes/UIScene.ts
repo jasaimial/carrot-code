@@ -40,6 +40,8 @@ import { UI } from "../config/ui.js";
 import { t } from "../i18n/index.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
+import { REGISTRY_KEY_CARROT_COUNT, REGISTRY_KEY_HERO_LIVES } from "./LevelScene.js";
+
 /** Detection: are we on a touch-capable device? */
 function isTouchDevice(): boolean {
   // Two signals because some Windows touch laptops set one but not the
@@ -52,6 +54,10 @@ export class UIScene extends Phaser.Scene {
   private store: TouchInputStore | undefined;
   private portraitOverlay: Phaser.GameObjects.Container | undefined;
   private orientationMql: MediaQueryList | undefined;
+  /** Container holding the lives-hearts icons. Re-rendered when count changes. */
+  private heartsContainer: Phaser.GameObjects.Container | undefined;
+  /** Text object for the carrot counter. Updated in-place when count changes. */
+  private carrotCountText: Phaser.GameObjects.Text | undefined;
 
   public constructor() {
     super({ key: "UIScene" });
@@ -61,8 +67,11 @@ export class UIScene extends Phaser.Scene {
   public create(): void {
     this.store = this.requireTouchStore();
 
+    // HUD (hearts + carrot count) renders on both desktop and mobile.
+    this.buildHud();
+
     if (!isTouchDevice()) {
-      // Desktop browsers (mouse + keyboard) get no buttons. The
+      // Desktop browsers (mouse + keyboard) get no touch buttons. The
       // TouchInputStore stays empty; Hero reads it unchanged.
       return;
     }
@@ -302,5 +311,110 @@ export class UIScene extends Phaser.Scene {
   /** CSS hex string -> Phaser numeric color (0xRRGGBB). */
   private hexToNumber(hex: string): number {
     return Number.parseInt(hex.slice(1), 16);
+  }
+
+  // ---------- HUD (hearts + carrot count) ----------------------------------
+  //
+  // The HUD reads its initial values from the scene registry and subscribes
+  // to change events on the keys LevelScene publishes.
+
+  /**
+   * Tile-sheet frame indices for the HUD glyphs. Tiles are 18×18 packed
+   * 20-per-row on `icons-pixel-platformer-tiles`. These numbers are
+   * eyeballed guesses on first pass — swap by inspecting the image
+   * (`public/assets/tilemaps/kenney-pixel-platformer/tilemap_packed.png`)
+   * and updating the literal. Index = `row × 20 + col` (0-based).
+   */
+  private static readonly HEART_FRAME = 44;
+  private static readonly CARROT_HUD_FRAME = 67;
+  /** Phaser asset key for the items-as-spritesheet declaration. */
+  private static readonly ICONS_KEY = "icons-pixel-platformer-tiles";
+
+  /** Build the hearts container + carrot counter; subscribe to registry. */
+  private buildHud(): void {
+    this.buildHearts(this.readLives());
+    this.buildCarrotCounter(this.readCarrots());
+
+    // Re-render hearts when LevelScene publishes a new life count.
+    this.registry.events.on(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_HERO_LIVES,
+      (_parent: unknown, value: unknown) => {
+        if (typeof value === "number") {
+          this.buildHearts(value);
+        }
+      },
+    );
+    // Update the carrot counter text when count changes.
+    this.registry.events.on(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_CARROT_COUNT,
+      (_parent: unknown, value: unknown) => {
+        if (typeof value === "number") {
+          this.carrotCountText?.setText(this.formatCarrotCount(value));
+        }
+      },
+    );
+  }
+
+  /** Build (or rebuild) the hearts row. Replaces the previous container. */
+  private buildHearts(lives: number): void {
+    this.heartsContainer?.destroy();
+    const heartSize = 18;
+    const icons: Phaser.GameObjects.Image[] = [];
+    for (let i = 0; i < Math.max(0, lives); i++) {
+      const x = UI.heartsLeftPx + i * (heartSize + UI.heartsGapPx);
+      const img = this.add.image(x, UI.heartsTopPx, UIScene.ICONS_KEY, UIScene.HEART_FRAME);
+      img.setOrigin(0, 0);
+      img.setScrollFactor(0);
+      // Slight upscale so hearts read at arm's length on mobile.
+      img.setScale(1.4);
+      icons.push(img);
+    }
+    this.heartsContainer = this.add.container(0, 0, icons).setDepth(1000);
+  }
+
+  /** Build the carrot counter (icon + numeric text) once. */
+  private buildCarrotCounter(initialCount: number): void {
+    const icon = this.add.image(
+      this.scale.width - UI.carrotsRightPx - 36,
+      UI.carrotsTopPx,
+      UIScene.ICONS_KEY,
+      UIScene.CARROT_HUD_FRAME,
+    );
+    icon.setOrigin(0, 0);
+    icon.setScrollFactor(0);
+    icon.setScale(1.4);
+    icon.setDepth(1000);
+
+    this.carrotCountText = this.add
+      .text(
+        this.scale.width - UI.carrotsRightPx,
+        UI.carrotsTopPx,
+        this.formatCarrotCount(initialCount),
+        {
+          fontFamily: "monospace",
+          fontSize: `${UI.hudFontSizePx.toString()}px`,
+          color: PALETTE_HEX.textCream,
+        },
+      )
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(1000);
+  }
+
+  /** Format the carrot counter. Padded so the layout doesn't shift. */
+  private formatCarrotCount(count: number): string {
+    return `× ${count.toString().padStart(2, "0")}`;
+  }
+
+  /** Read current life count from registry; fallback for first frame. */
+  private readLives(): number {
+    const v = this.registry.get(REGISTRY_KEY_HERO_LIVES) as unknown;
+    return typeof v === "number" ? v : 3;
+  }
+
+  /** Read current carrot count from registry; fallback for first frame. */
+  private readCarrots(): number {
+    const v = this.registry.get(REGISTRY_KEY_CARROT_COUNT) as unknown;
+    return typeof v === "number" ? v : 0;
   }
 }

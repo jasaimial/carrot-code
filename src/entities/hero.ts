@@ -33,6 +33,7 @@ import { CoyoteTimer } from "../systems/coyote-time.js";
 import { JumpBuffer } from "../systems/jump-buffer.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
+import { HeroLivesState, type HitOutcome } from "./hero-lives.js";
 import { type HeroInput, resolveHeroFrameAction } from "./hero-input.js";
 
 // Re-export the pure-logic types + resolver so the rest of the codebase
@@ -44,6 +45,7 @@ export {
   type HeroInput,
   resolveHeroFrameAction,
 } from "./hero-input.js";
+export { type HitOutcome } from "./hero-lives.js";
 
 /**
  * Phaser sprite wrapper that owns the hero's input handlers, coyote
@@ -66,6 +68,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   private readonly coyote: CoyoteTimer;
   private readonly buffer: JumpBuffer;
+  private readonly lives: HeroLivesState;
   /**
    * Optional shared touch input. Present on touch devices when UIScene
    * has seeded the registry; `undefined` (or empty store) on desktop.
@@ -96,6 +99,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
     this.coyote = new CoyoteTimer(HERO.coyoteTimeMs);
     this.buffer = new JumpBuffer(HERO.jumpBufferMs);
+    this.lives = new HeroLivesState(HERO.startingLives, HERO.hitInvulnerabilityMs);
     // Picked up from the scene registry (seeded by game.ts at postBoot).
     this.touch = scene.registry.get(REGISTRY_KEY_TOUCH_INPUT) as TouchInputStore | undefined;
 
@@ -188,5 +192,40 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (action.applyJumpReleaseCap) {
       body.setVelocityY(HERO.jumpReleaseVelocityCapPxPerSec);
     }
+
+    // --- Invulnerability blink ------------------------------------------
+    // While invulnerable, alpha-cycle the sprite for visual feedback.
+    // Sin-driven so it's smooth (no stutter on frame-time jitter).
+    if (this.lives.isInvulnerable(this.scene.time.now)) {
+      this.setAlpha(0.5 + 0.5 * Math.abs(Math.sin(this.scene.time.now / 60)));
+    } else {
+      this.setAlpha(1);
+    }
+  }
+
+  /**
+   * Apply a hit to the hero. Decrements lives unless inside the
+   * invulnerability window. On a hurt, the hero is briefly knocked
+   * back away from the contact source. On gameover, the caller
+   * (LevelScene) is expected to transition to GameOverScene.
+   *
+   * @param contactX - World x of the contact source (e.g. enemy x).
+   *   The hero is knocked horizontally AWAY from this point.
+   * @returns The outcome (`"hurt"` / `"gameover"` / `"ignored"`).
+   */
+  public takeHit(contactX: number): HitOutcome {
+    const outcome = this.lives.takeHit(this.scene.time.now);
+    if (outcome === "hurt" || outcome === "gameover") {
+      const body = this.body as Phaser.Physics.Arcade.Body;
+      const knockDir = this.x < contactX ? -1 : 1;
+      body.setVelocityX(knockDir * 260);
+      body.setVelocityY(-200);
+    }
+    return outcome;
+  }
+
+  /** Lives remaining. Used by the HUD. */
+  public getLives(): number {
+    return this.lives.lives;
   }
 }

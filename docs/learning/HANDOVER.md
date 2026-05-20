@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-19 (late evening, T035 + Enter-restart fix)
-**Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) (the slice) and `main` (CI-gated, currently lags the slice)
-**Current task:** Phase 3 (US1) feature-complete pending playtest sign-off. **T035 (mobile touch + portrait prompt) and a bug-fix for Enter-restart on GameOverScene** landed in this commit. `npm run dev -- --host` on a phone shows three translucent touch buttons (◀ ▶ JUMP) overlaid on gameplay; desktop sees nothing extra; phones held in portrait see a "rotate to landscape" prompt that auto-dismisses on rotation.
-**Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice` via Azure SWA Free; preview URLs spawn for every other branch / PR)
-**Local dev:** `npm run dev` for desktop or `npm run dev -- --host` to also reach from phones on the same LAN. Vite prints the Network URL when --host is set.
+**Last updated:** 2026-05-19 (US2 alpha: enemy + carrots + lives + game-over)
+**Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) and `main`
+**Current task:** **US1 shipped** ([playtest signed off](../../specs/001-vertical-slice/playtests/us1.md) @74a4a3c). **US2 alpha landed in this commit** — the game has stakes. One enemy patrols on the floor after the platforms; three carrots sit on top of each platform; the HUD shows 3 hearts + carrot count; touching the enemy drops a life with knockback + invuln blink; third hit fires the proper "Game over" screen. Remaining for US2 full: **powerup + SaveService** (next commit), then T046 sign-off.
+**Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice`)
+**Local dev:** `npm run dev` → walk right past three carrots on the platforms, jump over the slime on the floor (or eat the hit), reach the orange end-trigger. HUD top-left = hearts, top-right = carrot counter.
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -21,15 +21,14 @@
 - **Phase 1 (Setup) complete** — toolchain, CI, deploy config, README.
 - **Phase 2 (Foundational) complete** — every prerequisite is on disk, typed,
   and tested.
-- **Phase 3 (US1, P1 MVP-floor) feature-complete pending playtest sign-off.**
-  T029–T037 all landed including this commit's T035 (mobile touch) and
-  the Enter-restart bug fix. The slice plays on desktop + mobile.
-  78 unit tests across 8 files (10 new for TouchInputStore). Final
-  step is the maintainer walking [the playtest checklist](../../specs/001-vertical-slice/playtests/us1.md)
-  on a phone, signing off, then US2 can begin.
-- **Next phase (US2) starts at T041** — first enemy entity. Avoidance-only
-  per the spec; contact knocks the hero back. This is the "can the hero
-  die?" path that fires GameOverScene's `"gameover"` outcome for real.
+- **Phase 3 (US1, P1 MVP-floor) SHIPPED.** Playtest sign-off recorded.
+- **Phase 4 (US2, P2) ALPHA landed in this commit.** Enemy patrol, hero
+  takes damage with invuln window, carrots collect + HUD updates, third
+  hit fires GameOverScene `"gameover"` outcome. 87 unit tests across 9
+  files (9 new for HeroLivesState). All five gates green.
+- **US2 next commit:** powerup pickup + Hero.applyPowerup + power-up
+  HUD timer + SaveService persistence of `lifetimeCarrots` /
+  `completedLevelIds`. Then T046 full playtest sign-off.
 - **Repo is public**, CI is green on PR #1, branch protection on `main`
   requires CI green. Principle VIII is mechanically enforced.
 
@@ -182,24 +181,20 @@ tests/
   to find what needs tuning. T060 (polish) is the dedicated retune
   pass.
 
-## Next 3 actions (Phase 3 → Phase 4)
+## Next 3 actions (Phase 4 → finishing US2 → Phase 5)
 
-US1 is feature-complete pending playtest sign-off. Three steps from here:
+1. **Walk [playtests/us2.md](../../specs/001-vertical-slice/playtests/us2.md)
+   on desktop + phone.** File tuning observations: enemy speed, knockback
+   strength, invuln window length, hearts visibility, carrot pickup feel.
+2. **Next commit:** powerup pickup + Hero.applyPowerup + HUD power-up
+   timer + SaveService integration (T045) + T046a cross-session
+   persistence playtest. After that lands, US2 is full-shippable.
+3. **Then T046 sign-off and US3 begins at T047** — narrator dialog
+   beat. Original prose (Constitution Principle I + spec FR-029).
 
-1. **Walk [playtests/us1.md](../../specs/001-vertical-slice/playtests/us1.md)
-   on both desktop and phone.** The mobile section that was deferred in
-   the previous handover is now in-scope. File tuning observations in
-   the open-items block at the bottom. If touch-button positions feel
-   awkward, tune the `touch*` knobs in `src/config/ui.ts`.
-2. **Sign off T037.** Date + git SHA at the bottom of the checklist.
-   That formally closes US1.
-3. **Begin US2 at T041** — first enemy entity (avoidance-only patrol
-   per the spec). When enemies can hit the hero, GameOverScene's
-   `"gameover"` outcome fires for real and the slice has stakes.
-
-Natural stopping points: after the playtest pass (US1 sign-off ships
-the MVP-floor), after T041 (first enemy on screen), after T046 (US2
-fully playable: enemies + lives + game-over).
+Natural stopping points: after T037 sign-off (US1 done), after this
+commit's playtest (US2 alpha demoable), after next commit (US2 full),
+after T049 (narrator demoable).
 
 Natural stopping points: after T029/T030 (level data + registry), after
 T032 (BootScene actually loads things), after T034 (hero can move on

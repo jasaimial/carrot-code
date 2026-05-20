@@ -69,4 +69,4 @@ Cross-reference with the [US1 acceptance scenarios](../spec.md#user-story-1--pla
 
 When all unchecked items pass, US1 is demoable per Constitution Principle VI's gameplay-feel rule. Sign off below with the date + git SHA the playtest covered:
 
-- [ ] Playtest sign-off: ____ (YYYY-MM-DD, @<git-sha>)
+- [x] Playtest sign-off: **2026-05-19, @74a4a3c** (desktop keyboard + Android phone via Azure SWA deploy URL; multi-touch + landscape best-effort lock verified after fix). Maintainer @jasaimial.

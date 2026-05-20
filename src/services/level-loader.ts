@@ -67,6 +67,8 @@ interface TiledObject {
   readonly width?: number;
   readonly height?: number;
   readonly properties?: readonly TiledProperty[];
+  /** Index signature so `obj[axis]` typechecks for axis: "x" | "y". */
+  readonly [key: string]: unknown;
 }
 
 interface TiledLayer {
@@ -203,6 +205,8 @@ function readEnemy(obj: TiledObject): EnemyConfig {
     kind: "enemy",
     id,
     spriteKey,
+    x: readPlacementCoord(obj, "x"),
+    y: readPlacementCoord(obj, "y"),
     patrol: Object.freeze({
       axis: patrolAxis,
       speedPxPerSec,
@@ -216,6 +220,8 @@ function readCarrot(obj: TiledObject): CarrotConfig {
     kind: "carrot",
     id: readStringProp(obj, "id"),
     spriteKey: readStringProp(obj, "spriteKey"),
+    x: readPlacementCoord(obj, "x"),
+    y: readPlacementCoord(obj, "y"),
   });
 }
 
@@ -230,9 +236,27 @@ function readPowerup(obj: TiledObject): PowerupConfig {
     kind: "powerup",
     id: readStringProp(obj, "id"),
     spriteKey: readStringProp(obj, "spriteKey"),
+    x: readPlacementCoord(obj, "x"),
+    y: readPlacementCoord(obj, "y"),
     effect,
     durationMs: readNumberProp(obj, "durationMs"),
   });
+}
+
+/**
+ * Read the Tiled object's spawn coordinate. Tiled puts these on the
+ * object itself (not inside `properties[]`) so we can't use
+ * `readNumberProp`. We check for a non-finite or missing value the
+ * same way `readNumberProp` does so authors get the same error shape.
+ */
+function readPlacementCoord(obj: TiledObject, axis: "x" | "y"): number {
+  const value = obj[axis];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new LevelLoadError(
+      `level-loader: object \`${nameOf(obj)}\` is missing required placement coordinate \`${axis}\``,
+    );
+  }
+  return value;
 }
 
 // -----------------------------------------------------------------------------

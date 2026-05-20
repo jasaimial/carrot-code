@@ -154,17 +154,27 @@ describe("loadLevel", () => {
       kind: "enemy",
       id: "slime-1",
       spriteKey: "slime",
+      x: 400,
+      y: 300,
       patrol: {
         axis: "horizontal",
         speedPxPerSec: 60,
         bounds: { min: 350, max: 450 },
       },
     });
-    expect(carrot).toEqual({ kind: "carrot", id: "carrot-1", spriteKey: "carrot" });
+    expect(carrot).toEqual({
+      kind: "carrot",
+      id: "carrot-1",
+      spriteKey: "carrot",
+      x: 200,
+      y: 280,
+    });
     expect(powerup).toEqual({
       kind: "powerup",
       id: "shield-1",
       spriteKey: "shield",
+      x: 600,
+      y: 280,
       effect: "invincibility",
       durationMs: 4000,
     });
