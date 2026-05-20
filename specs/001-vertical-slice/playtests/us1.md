@@ -37,9 +37,18 @@ Walk the level from spawn → end-trigger. Note the platform sequence: the three
 - [ ] **Click "Play again" restarts the level.** Back to BootScene → Loading → LevelScene with the hero at spawn.
 - [ ] **`Enter` and `Space` also trigger Play-again** from the GameOverScene.
 
-## Touch / mobile (DEFERRED to T035)
+## Touch / mobile (T035)
 
-T035 wires touch buttons + landscape orientation lock. Skip this section until T035 lands; you'll need a phone in hand to verify.
+Requires a phone or tablet reachable from the dev server. Start Vite with `npm run dev -- --host` and open the printed **Network** URL on your device. (At home / same router: works fine. At corp on a devbox + LAN phone: this won't reach; use the live deploy URL instead.)
+
+- [ ] **Three translucent buttons appear at the bottom of the screen on phone**, none on desktop: `◄`, `►` (lower-left), `JUMP` (lower-right). All sized ~88 px for thumbs.
+- [ ] **`◄` / `►` buttons move the hero left / right** while pressed; releasing stops movement.
+- [ ] **`JUMP` button fires a jump on press.** Holding gives a tall jump; tapping gives a short jump (variable-height works the same as keyboard).
+- [ ] **Sliding a finger off a button while still pressed releases the flag** (no stuck-down state). If you press JUMP and slide your finger up off the button, the hero doesn't keep "holding" jump.
+- [ ] **Buttons don't block the gameplay area.** Touch up in the play area (above the bottom button row) does nothing — no accidental jumps from tapping a platform.
+- [ ] **Portrait orientation shows a "📱 Rotate to landscape" overlay** that dims gameplay. Rotating the phone landscape auto-dismisses the overlay.
+- [ ] **Camera follows the hero correctly on phone** (no jitter, no off-screen drift).
+- [ ] **End-trigger reach + game-over flow works** the same as desktop, with the Play-again button responsive to touch tap.
 
 ## Acceptance per spec
 

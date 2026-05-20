@@ -31,6 +31,7 @@ import { LevelScene } from "./scenes/LevelScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { UIScene } from "./scenes/UIScene";
 import { KennyAssetService } from "./services/asset-service.js";
+import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "./systems/touch-input-store.js";
 
 /**
  * The complete list of scenes registered with the Phaser game, in boot order.
@@ -102,6 +103,7 @@ export function startGame(parent: HTMLElement): Phaser.Game {
       postBoot: (game: Phaser.Game): void => {
         game.registry.set("devMode", import.meta.env.DEV);
         game.registry.set(REGISTRY_KEY_ASSET_SERVICE, new KennyAssetService());
+        game.registry.set(REGISTRY_KEY_TOUCH_INPUT, new TouchInputStore());
       },
     },
 

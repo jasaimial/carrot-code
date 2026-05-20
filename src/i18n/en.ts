@@ -42,6 +42,15 @@ export const EN = {
   // --- Boot loading screen (T032). Visible briefly while assets preload. ---
   "boot.loading": "Loading…",
 
+  // --- Touch controls (T035). Button labels visible on touch devices. ---
+  // Buttons use unicode glyphs that render across most phone fonts;
+  // wrapped in t() anyway so a future locale can override (e.g. RTL
+  // languages may want different glyph order).
+  "touch.left": "◀",
+  "touch.right": "▶",
+  "touch.jump": "JUMP",
+  "touch.rotatePrompt": "📱 Rotate to landscape",
+
   // --- HUD labels (T035 / T043) -------------------------------------------
   "hud.carrots": "Carrots",
   "hud.lives": "Lives",

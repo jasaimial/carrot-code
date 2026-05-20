@@ -72,4 +72,26 @@ export const UI = {
   fpsOverlayFontSizePx: 12,
   /** Update interval for the FPS overlay text. */
   fpsOverlayRefreshMs: 250,
+
+  // --- Touch controls (T035) --------------------------------------------
+  // Buttons render only on touch devices (UIScene feature-detects via
+  // 'ontouchstart' in window). Positions are in the scene's internal
+  // 960x540 coordinate space; Phaser's FIT scale handles physical
+  // pixels. Sizes are square (width == height).
+  /** Touch button edge length (square). */
+  touchButtonSizePx: 88,
+  /** Distance from the bottom edge to the button center. */
+  touchButtonBottomPx: 70,
+  /** Distance from the left edge to the left button center. */
+  touchLeftButtonLeftPx: 80,
+  /** Distance from the left edge to the right button center. */
+  touchRightButtonLeftPx: 196,
+  /** Distance from the right edge to the jump button center. */
+  touchJumpButtonRightPx: 80,
+  /** Touch button fill opacity (0..1). Low so it doesn't dominate. */
+  touchButtonOpacity: 0.35,
+  /** Touch button opacity boost when pressed. */
+  touchButtonPressedOpacity: 0.7,
+  /** Touch button label font size. */
+  touchButtonLabelFontSizePx: 36,
 } as const;

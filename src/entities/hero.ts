@@ -31,6 +31,7 @@ import Phaser from "phaser";
 import { HERO } from "../config/hero.js";
 import { CoyoteTimer } from "../systems/coyote-time.js";
 import { JumpBuffer } from "../systems/jump-buffer.js";
+import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
 import { type HeroInput, resolveHeroFrameAction } from "./hero-input.js";
 
@@ -65,6 +66,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
   private readonly coyote: CoyoteTimer;
   private readonly buffer: JumpBuffer;
+  /**
+   * Optional shared touch input. Present on touch devices when UIScene
+   * has seeded the registry; `undefined` (or empty store) on desktop.
+   * Either way the read is unconditional below.
+   */
+  private readonly touch: TouchInputStore | undefined;
   private readonly keys: {
     readonly left: Phaser.Input.Keyboard.Key;
     readonly right: Phaser.Input.Keyboard.Key;
@@ -89,6 +96,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
 
     this.coyote = new CoyoteTimer(HERO.coyoteTimeMs);
     this.buffer = new JumpBuffer(HERO.jumpBufferMs);
+    // Picked up from the scene registry (seeded by game.ts at postBoot).
+    this.touch = scene.registry.get(REGISTRY_KEY_TOUCH_INPUT) as TouchInputStore | undefined;
 
     // Register on the scene + enable Arcade physics so the body exists
     // before the first collider call from the caller.
@@ -141,13 +150,18 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.coyote.update(dtMs, isOnGround);
 
     const input: HeroInput = {
-      left: this.keys.left.isDown || this.keys.a.isDown,
-      right: this.keys.right.isDown || this.keys.d.isDown,
+      left: this.keys.left.isDown || this.keys.a.isDown || (this.touch?.left ?? false),
+      right: this.keys.right.isDown || this.keys.d.isDown || (this.touch?.right ?? false),
       jumpPressed:
         Phaser.Input.Keyboard.JustDown(this.keys.up) ||
         Phaser.Input.Keyboard.JustDown(this.keys.w) ||
-        Phaser.Input.Keyboard.JustDown(this.keys.space),
-      jumpHeld: this.keys.up.isDown || this.keys.w.isDown || this.keys.space.isDown,
+        Phaser.Input.Keyboard.JustDown(this.keys.space) ||
+        (this.touch?.consumeJumpPressed() ?? false),
+      jumpHeld:
+        this.keys.up.isDown ||
+        this.keys.w.isDown ||
+        this.keys.space.isDown ||
+        (this.touch?.jumpHeld ?? false),
     };
 
     const action = resolveHeroFrameAction({

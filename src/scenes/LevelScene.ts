@@ -87,6 +87,10 @@ export class LevelScene extends Phaser.Scene {
     this.spawnHero(level, terrainLayer);
     this.configureCamera(map);
     this.setupEndTrigger(level);
+    // UIScene runs in parallel above this one, drawing touch buttons
+    // (on touch devices) + the portrait-rotate prompt (on portrait).
+    // `launch` (not `start`) so this scene keeps running.
+    this.scene.launch("UIScene");
   }
 
   /** Phaser hook — forward delta to the hero. */
@@ -220,6 +224,9 @@ export class LevelScene extends Phaser.Scene {
       // but the overlap may fire several frames in a row before the unload
       // completes. Pause to ensure no more updates.
       this.scene.pause();
+      // Stop the UIScene that this level launched, so its touch buttons
+      // and portrait overlay don't sit on top of GameOverScene.
+      this.scene.stop("UIScene");
       this.scene.start("GameOverScene", {
         outcome: "complete",
         levelId: this.levelId,

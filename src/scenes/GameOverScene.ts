@@ -103,12 +103,15 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     // Keyboard fallback: Enter or Space also restarts.
+    // Phaser keyboard events are named after the KEY NAME ("ENTER"),
+    // not the numeric KeyCode (13). Earlier version used .toString()
+    // on the KeyCode and silently never fired.
     const kb = this.input.keyboard;
     if (kb !== null) {
-      kb.once(`keydown-${Phaser.Input.Keyboard.KeyCodes.ENTER.toString()}`, () => {
+      kb.once("keydown-ENTER", () => {
         this.restartLevel();
       });
-      kb.once(`keydown-${Phaser.Input.Keyboard.KeyCodes.SPACE.toString()}`, () => {
+      kb.once("keydown-SPACE", () => {
         this.restartLevel();
       });
     }

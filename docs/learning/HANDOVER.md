@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-19 (US1 desktop-playable: hero entity + collision + end-trigger + game-over)
+**Last updated:** 2026-05-19 (late evening, T035 + Enter-restart fix)
 **Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) (the slice) and `main` (CI-gated, currently lags the slice)
-**Current task:** Phase 3 (US1) all-but-mobile done. **T033 + T034 finish + T036 + T037 checklist landed**. `npm run dev` is now playable end-to-end on desktop: walk, jump (with coyote + buffer + variable-height), land on the three Tiled-authored platforms, reach the orange end-trigger, see "Level complete!" with a Play-again button, restart. The remaining US1 task is **T035** (mobile touch controls + landscape lock); deferred because it needs a real phone to verify and is best done in a quick interactive session with the maintainer.
+**Current task:** Phase 3 (US1) feature-complete pending playtest sign-off. **T035 (mobile touch + portrait prompt) and a bug-fix for Enter-restart on GameOverScene** landed in this commit. `npm run dev -- --host` on a phone shows three translucent touch buttons (◀ ▶ JUMP) overlaid on gameplay; desktop sees nothing extra; phones held in portrait see a "rotate to landscape" prompt that auto-dismisses on rotation.
 **Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice` via Azure SWA Free; preview URLs spawn for every other branch / PR)
-**Local dev:** `npm run dev` → http://localhost:5173 → brief "Loading…" → hero spawns at the left tree, camera follows. Try arrow keys + space to play. Reach the orange rectangle by the right tree to win.
+**Local dev:** `npm run dev` for desktop or `npm run dev -- --host` to also reach from phones on the same LAN. Vite prints the Network URL when --host is set.
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -21,15 +21,15 @@
 - **Phase 1 (Setup) complete** — toolchain, CI, deploy config, README.
 - **Phase 2 (Foundational) complete** — every prerequisite is on disk, typed,
   and tested.
-- **Phase 3 (US1, P1 MVP-floor) ALMOST DONE** — T029–T032, T033, T034, T036,
-  T037-checklist all landed. The vertical slice plays end-to-end on desktop.
-  68 unit tests across 7 files (13 new hero-resolver tests). All five gates
-  green.
-- **Only T035 (mobile touch + landscape) remains** before US1 is fully
-  shippable on both desktop and mobile. Deferred to a phone-in-hand session.
-- **T037 manual playtest** is authored at
-  [specs/001-vertical-slice/playtests/us1.md](../../specs/001-vertical-slice/playtests/us1.md).
-  Run through it before declaring US1 done.
+- **Phase 3 (US1, P1 MVP-floor) feature-complete pending playtest sign-off.**
+  T029–T037 all landed including this commit's T035 (mobile touch) and
+  the Enter-restart bug fix. The slice plays on desktop + mobile.
+  78 unit tests across 8 files (10 new for TouchInputStore). Final
+  step is the maintainer walking [the playtest checklist](../../specs/001-vertical-slice/playtests/us1.md)
+  on a phone, signing off, then US2 can begin.
+- **Next phase (US2) starts at T041** — first enemy entity. Avoidance-only
+  per the spec; contact knocks the hero back. This is the "can the hero
+  die?" path that fires GameOverScene's `"gameover"` outcome for real.
 - **Repo is public**, CI is green on PR #1, branch protection on `main`
   requires CI green. Principle VIII is mechanically enforced.
 
@@ -108,21 +108,28 @@ src/
 │   ├── level-loader.ts    ←   T022 — pure loadLevel(); LevelLoadError
 │   └── asset-service.ts   ←   T023 + T031 — discriminated-union
 │                              AssetDeclaration; 2 Kenney declarations
-├── systems/               ← T024–T026 + T027 — pure logic + debug overlay
+├── systems/               ← T024–T026, T027, T035 — pure logic + debug overlay
 │   ├── coyote-time.ts     ←   CoyoteTimer state machine (8 tests)
 │   ├── jump-buffer.ts     ←   JumpBuffer (8 tests)
 │   ├── physics-helpers.ts ←   clamp, pointInRect, pointDistanceSq,
 │   │                          nextPatrolDirection (18 tests)
+│   ├── touch-input-store.ts ← T035 — singleton boolean flags driven by
+│   │                          UIScene's touch buttons; Hero reads each
+│   │                          frame. 10 unit tests including the
+│   │                          one-shot edge-detect on jump press.
 │   └── debug-overlay.ts   ←   T027 — attachFpsOverlay(scene), dev-only.
 └── scenes/
     ├── BootScene.ts       ← T032 — async preload, then start LevelScene.
     ├── MenuScene.ts       ← stub (stays a stub for v0)
     ├── LevelScene.ts      ← T034 — tilemap render + collision +
     │                          hero spawn + camera follow + end-trigger
-    │                          overlap. NO entity dispatch yet (US2: T041).
-    ├── UIScene.ts         ← stub (real: T035 / T043 / T049)
+    │                          overlap + launches UIScene.
+    ├── UIScene.ts         ← T035 — touch buttons on touch devices
+    │                          (feature-detected); portrait-rotate prompt
+    │                          via matchMedia. HUD elements + narrator
+    │                          land later (T043 / T049).
     └── GameOverScene.ts   ← T036 — "Level complete!" / "Game over" +
-                               Play-again button (mouse + Enter/Space).
+                               Play-again button (mouse + Enter + Space).
 
 public/assets/             ← T029 + T031 — Kenney Pixel Platformer (CC0)
 ├── CREDITS.md             ←   provenance for every asset, per Principle VII
@@ -154,48 +161,45 @@ tests/
 
 ## What's NOT on disk yet (and why that's fine)
 
-- **No touch controls / no landscape orientation lock** — T035.
-  `screen.orientation.lock("landscape")` and pointer-driven HUD buttons
-  need a real phone for verification, so this is deferred to a
-  phone-in-hand session. The Hero entity already accepts injected input
-  (today: keyboard); T035 will inject pointer-driven flags into the
-  same `HeroInput` shape via UIScene without changing the resolver.
-- **No HUD** (UIScene) — stays a stub until T035 (touch controls +
-  landscape lock) / T043 (HUD elements) / T049 (narrator dialog).
+- **No HUD** (hearts + carrot counter + power-up timer) — UIScene only
+  has the touch buttons + portrait prompt today. HUD elements land at
+  T043 (US2) when there's something to count.
+- **No narrator dialog** — lands T049.
 - **No entity dispatch** in LevelScene (enemy / carrot / powerup
   sprites) — US2 (T041) for enemies, US3 (T042) for collectibles. The
   level-loader already parses these; LevelScene just doesn't act on
   them yet.
 - **No hero-death path** — GameOverScene's `"gameover"` outcome is
   declared but never fired today. Wired in US2 when enemies can hit.
+- **No `screen.orientation.lock("landscape")` call.** Cross-browser
+  reliability is too poor (iOS Safari doesn't support it; Chrome
+  requires fullscreen). The PWA manifest declares landscape so
+  installed PWAs respect it; the in-browser fallback is the visual
+  rotate prompt.
 - **Config values are placeholders** — the numbers in `src/config/*.ts`
-  are reasonable starting points, NOT playtested. **Run
+  are reasonable starting points, NOT playtested. Run
   [playtests/us1.md](../../specs/001-vertical-slice/playtests/us1.md)
-  to find what needs tuning.** T060 (polish) is the dedicated retune
+  to find what needs tuning. T060 (polish) is the dedicated retune
   pass.
 
-## Next 3 actions (Phase 3, US1 — finishing US1, then US2)
+## Next 3 actions (Phase 3 → Phase 4)
 
-US1 desktop-playable just landed. Remaining steps to ship US1 fully:
+US1 is feature-complete pending playtest sign-off. Three steps from here:
 
-1. **Run the T037 playtest checklist** at
-   [specs/001-vertical-slice/playtests/us1.md](../../specs/001-vertical-slice/playtests/us1.md).
-   Mark items pass/fail. File tuning observations into the open-items
-   block at the bottom. If anything in `src/config/hero.ts` or
-   `src/config/physics.ts` feels off, adjust + re-run the checklist.
-2. **T035** — UIScene real impl: on-screen touch buttons
-   (left/right/jump) + `screen.orientation.lock("landscape")`. The Hero
-   entity already accepts injected input via the shared `HeroInput`
-   shape, so UIScene just publishes pointer state to the same store
-   the keyboard handlers feed. Needs a phone in hand to verify.
-3. **After US1 ships** — US2 begins at T041 (enemy entity + patrol +
-   contact-knockback). The avoidance-only enemy design from the spec
-   is the first "can the hero die?" path; once enemies hit, the
-   `"gameover"` outcome on GameOverScene fires for real.
+1. **Walk [playtests/us1.md](../../specs/001-vertical-slice/playtests/us1.md)
+   on both desktop and phone.** The mobile section that was deferred in
+   the previous handover is now in-scope. File tuning observations in
+   the open-items block at the bottom. If touch-button positions feel
+   awkward, tune the `touch*` knobs in `src/config/ui.ts`.
+2. **Sign off T037.** Date + git SHA at the bottom of the checklist.
+   That formally closes US1.
+3. **Begin US2 at T041** — first enemy entity (avoidance-only patrol
+   per the spec). When enemies can hit the hero, GameOverScene's
+   `"gameover"` outcome fires for real and the slice has stakes.
 
-Natural stopping points: after T035 (US1 fully playable on desktop +
-mobile), after T037 sign-off (US1 demoable per Principle VI), after T041
-(US2 first enemy on screen).
+Natural stopping points: after the playtest pass (US1 sign-off ships
+the MVP-floor), after T041 (first enemy on screen), after T046 (US2
+fully playable: enemies + lives + game-over).
 
 Natural stopping points: after T029/T030 (level data + registry), after
 T032 (BootScene actually loads things), after T034 (hero can move on
