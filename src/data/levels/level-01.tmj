@@ -148,6 +148,26 @@
                  "width":0,
                  "x":495,
                  "y":225
+                },
+                {
+                 "height":0,
+                 "id":12,
+                 "name":"shield-1",
+                 "opacity":1,
+                 "point":true,
+                 "properties":[
+                        {"name":"kind","type":"string","value":"powerup"},
+                        {"name":"id","type":"string","value":"shield-1"},
+                        {"name":"spriteKey","type":"string","value":"icons-pixel-platformer-tiles"},
+                        {"name":"effect","type":"string","value":"invincibility"},
+                        {"name":"durationMs","type":"float","value":5000}
+                        ],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":612,
+                 "y":288
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -156,7 +176,7 @@
          "y":0
         }],
  "nextlayerid":3,
- "nextobjectid":12,
+ "nextobjectid":13,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.1",

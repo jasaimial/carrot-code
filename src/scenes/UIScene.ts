@@ -40,7 +40,11 @@ import { UI } from "../config/ui.js";
 import { t } from "../i18n/index.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
-import { REGISTRY_KEY_CARROT_COUNT, REGISTRY_KEY_HERO_LIVES } from "./LevelScene.js";
+import {
+  REGISTRY_KEY_CARROT_COUNT,
+  REGISTRY_KEY_HERO_LIVES,
+  REGISTRY_KEY_POWERUP_REMAINING_MS,
+} from "./LevelScene.js";
 
 /** Detection: are we on a touch-capable device? */
 function isTouchDevice(): boolean {
@@ -58,6 +62,8 @@ export class UIScene extends Phaser.Scene {
   private heartsContainer: Phaser.GameObjects.Container | undefined;
   /** Text object for the carrot counter. Updated in-place when count changes. */
   private carrotCountText: Phaser.GameObjects.Text | undefined;
+  /** Text object for the power-up timer (visible only when timer > 0). */
+  private powerTimerText: Phaser.GameObjects.Text | undefined;
 
   public constructor() {
     super({ key: "UIScene" });
@@ -330,10 +336,11 @@ export class UIScene extends Phaser.Scene {
   /** Phaser asset key for the items-as-spritesheet declaration. */
   private static readonly ICONS_KEY = "icons-pixel-platformer-tiles";
 
-  /** Build the hearts container + carrot counter; subscribe to registry. */
+  /** Build the hearts container + carrot counter + powerup timer; subscribe to registry. */
   private buildHud(): void {
     this.buildHearts(this.readLives());
     this.buildCarrotCounter(this.readCarrots());
+    this.buildPowerTimer();
 
     // Re-render hearts when LevelScene publishes a new life count.
     this.registry.events.on(
@@ -350,6 +357,15 @@ export class UIScene extends Phaser.Scene {
       (_parent: unknown, value: unknown) => {
         if (typeof value === "number") {
           this.carrotCountText?.setText(this.formatCarrotCount(value));
+        }
+      },
+    );
+    // Update / hide the power-up timer as remaining ms changes.
+    this.registry.events.on(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_POWERUP_REMAINING_MS,
+      (_parent: unknown, value: unknown) => {
+        if (typeof value === "number") {
+          this.updatePowerTimer(value);
         }
       },
     );
@@ -404,6 +420,42 @@ export class UIScene extends Phaser.Scene {
   /** Format the carrot counter. Padded so the layout doesn't shift. */
   private formatCarrotCount(count: number): string {
     return `× ${count.toString().padStart(2, "0")}`;
+  }
+
+  /**
+   * Build the power-up timer text (centered along the top). Hidden by
+   * default; shown via updatePowerTimer when remaining ms > 0.
+   */
+  private buildPowerTimer(): void {
+    this.powerTimerText = this.add
+      .text(this.scale.width / 2, UI.powerTimerTopPx, "", {
+        fontFamily: "monospace",
+        fontSize: `${UI.hudFontSizePx.toString()}px`,
+        color: PALETTE_HEX.uiPowerup,
+        backgroundColor: PALETTE_HEX.bgDialog,
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setVisible(false);
+  }
+
+  /**
+   * Update the power-up timer text. Shows "⚡ N.Ns" while > 0, hides
+   * when the timer expires.
+   */
+  private updatePowerTimer(remainingMs: number): void {
+    if (this.powerTimerText === undefined) {
+      return;
+    }
+    if (remainingMs <= 0) {
+      this.powerTimerText.setVisible(false);
+      return;
+    }
+    const seconds = (remainingMs / 1000).toFixed(1);
+    this.powerTimerText.setText(`⚡ ${seconds}s`);
+    this.powerTimerText.setVisible(true);
   }
 
   /** Read current life count from registry; fallback for first frame. */

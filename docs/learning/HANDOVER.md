@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-19 (US2 alpha: enemy + carrots + lives + game-over)
+**Last updated:** 2026-05-19 (US2 feature-complete: powerup + SaveService)
 **Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) and `main`
-**Current task:** **US1 shipped** ([playtest signed off](../../specs/001-vertical-slice/playtests/us1.md) @74a4a3c). **US2 alpha landed in this commit** — the game has stakes. One enemy patrols on the floor after the platforms; three carrots sit on top of each platform; the HUD shows 3 hearts + carrot count; touching the enemy drops a life with knockback + invuln blink; third hit fires the proper "Game over" screen. Remaining for US2 full: **powerup + SaveService** (next commit), then T046 sign-off.
+**Current task:** **US2 feature-complete pending T046 sign-off.** Powerup pickup grants temporary invincibility (hero tints gold, slime contact passes through, top-center HUD timer ticks down), SaveService persists `completedLevelIds` + `lifetimeCarrots` to `localStorage` on every level-complete. Final step: maintainer walks [the full US2 playtest](../../specs/001-vertical-slice/playtests/us2.md) including the new powerup + persistence sections, signs off, then US3 (narrator) opens at T047.
 **Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice`)
-**Local dev:** `npm run dev` → walk right past three carrots on the platforms, jump over the slime on the floor (or eat the hit), reach the orange end-trigger. HUD top-left = hearts, top-right = carrot counter.
+**Local dev:** `npm run dev` → walk right, collect carrots on the platforms, grab the gold powerup, run through the slime without taking damage while it's active, reach end-trigger. After complete, dev-tools → Application → Local Storage shows `carrot-code:v1:save` with your progress.
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -22,13 +22,13 @@
 - **Phase 2 (Foundational) complete** — every prerequisite is on disk, typed,
   and tested.
 - **Phase 3 (US1, P1 MVP-floor) SHIPPED.** Playtest sign-off recorded.
-- **Phase 4 (US2, P2) ALPHA landed in this commit.** Enemy patrol, hero
-  takes damage with invuln window, carrots collect + HUD updates, third
-  hit fires GameOverScene `"gameover"` outcome. 87 unit tests across 9
-  files (9 new for HeroLivesState). All five gates green.
-- **US2 next commit:** powerup pickup + Hero.applyPowerup + power-up
-  HUD timer + SaveService persistence of `lifetimeCarrots` /
-  `completedLevelIds`. Then T046 full playtest sign-off.
+- **Phase 4 (US2, P2) feature-complete pending sign-off.** This commit
+  added powerup pickup, Hero.applyPowerup, HUD power-up timer, and
+  SaveService persistence of `lifetimeCarrots` / `completedLevelIds`.
+  96 unit tests across 10 files (9 new for HeroPowerupState). All five
+  gates green.
+- **US3 next** — starts at T047 (narrator dialog). Original prose per
+  Principle I + FR-029.
 - **Repo is public**, CI is green on PR #1, branch protection on `main`
   requires CI green. Principle VIII is mechanically enforced.
 
@@ -181,20 +181,20 @@ tests/
   to find what needs tuning. T060 (polish) is the dedicated retune
   pass.
 
-## Next 3 actions (Phase 4 → finishing US2 → Phase 5)
+## Next 3 actions (Phase 4 sign-off → Phase 5)
 
 1. **Walk [playtests/us2.md](../../specs/001-vertical-slice/playtests/us2.md)
-   on desktop + phone.** File tuning observations: enemy speed, knockback
-   strength, invuln window length, hearts visibility, carrot pickup feel.
-2. **Next commit:** powerup pickup + Hero.applyPowerup + HUD power-up
-   timer + SaveService integration (T045) + T046a cross-session
-   persistence playtest. After that lands, US2 is full-shippable.
-3. **Then T046 sign-off and US3 begins at T047** — narrator dialog
-   beat. Original prose (Constitution Principle I + spec FR-029).
+   on desktop + phone.** Includes the new powerup + cross-session
+   persistence sections. File tuning observations: powerup duration,
+   stack-mode feel, HUD timer readability.
+2. **Sign off T046 (and T046a / T046b).** Two checkboxes at the
+   bottom of `us2.md` — alpha + full.
+3. **US3 begins at T047** — author `src/data/narrator-beats.ts` with
+   one beat: `{ kind: "after-spawn", delayMs: 2000, text: <original prose> }`.
+   Then T048 (pure trigger evaluator), T049 (UIScene dialog overlay).
 
-Natural stopping points: after T037 sign-off (US1 done), after this
-commit's playtest (US2 alpha demoable), after next commit (US2 full),
-after T049 (narrator demoable).
+Natural stopping points: after T046 sign-off (US2 done, MVP shipped),
+after T049 (narrator demoable), after T051 (US3 sign-off).
 
 Natural stopping points: after T029/T030 (level data + registry), after
 T032 (BootScene actually loads things), after T034 (hero can move on

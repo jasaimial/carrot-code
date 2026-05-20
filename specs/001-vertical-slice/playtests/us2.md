@@ -61,14 +61,30 @@ Cross-reference [Story 2 acceptance scenarios](../spec.md#user-story-2--face-sta
 - [ ] AS-3 — Hero with 0 lives → game over → restart resets everything. (Powerup test deferred — see "Open items" below.)
 - [ ] AS-4 — Hero reaches end-trigger → level complete + carrot count persisted (the persistence check lives in T046a, after SaveService integration lands).
 
-## Open items (NOT covered by this commit; tracked for the next one)
+## Powerup (1 on level-01, between platform 3 and the slime)
 
-These are explicitly deferred:
+- [ ] **Powerup pickup renders** as a small heart-shaped tile tinted gold, sitting at floor height between platform 3 and the slime patrol area.
+- [ ] **Overlapping it collects the pickup** (sprite disappears) and:
+  - The **power-up timer text** appears at the top-center of the HUD showing `⚡ 5.0s` (or whatever the configured duration is).
+  - The **hero sprite tints gold** so you can see invincibility is active.
+- [ ] **Timer counts down** smoothly and the text updates roughly every 100 ms (rounded for stability).
+- [ ] **Walking into the slime while powered does NOT decrement lives.** No knockback, no hurt sound (when sound lands). The slime just passes through.
+- [ ] **Timer expires → hero gold tint removed, timer text disappears, slime contact resumes hurting** as before.
+- [ ] **Picking up another powerup while already powered refreshes the timer** to the full duration (per `POWERUPS.invincibilityStackMode = "refresh"`).
 
-- **Powerup pickup + invincibility effect** — Hero.applyPowerup(), HUD power-up timer, pickup.ts powerup branch. The Tiled `kind: powerup` is loader-accepted but `LevelScene` skips it with a `console.warn` until the next commit wires it.
-- **SaveService integration** — `lifetimeCarrots` + `completedLevelIds` aren't persisted yet. T045.
-- **Cross-session persistence playtest** (T046a) — needs T045 first.
-- **Accessibility minimum-bar playtest** (T046b) — applies after powerup + HUD are complete.
+## Cross-session persistence (T046a)
+
+Requires SaveService working (lands with powerup commit).
+
+- [ ] **Complete the level once** — collect 1+ carrots, reach the end. The Game Over (complete) screen appears.
+- [ ] **Close the tab AND the entire browser** (or hard-quit the standalone PWA on phone).
+- [ ] **Re-open the dev URL** (or PWA). Open the browser dev tools → Application → Local Storage → verify a `carrot-code:v1:save` entry exists with:
+  - `version: 1`
+  - `completedLevelIds` includes `"level-01"`
+  - `lifetimeCarrots` > 0
+  - `lastPlayedAtIso` is a recent ISO timestamp
+- [ ] **The save persists across restarts of the dev server** (i.e., `npm run dev` rebuild doesn't clear it).
+- [ ] **Private / incognito mode**: the game still boots and plays, just doesn't persist. A console warning appears at boot ("SaveService unavailable; progress will not persist") or on save ("progress save failed"). **The game does NOT crash.**
 
 ## Tuning observations (open items)
 

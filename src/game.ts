@@ -31,7 +31,11 @@ import { LevelScene } from "./scenes/LevelScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { UIScene } from "./scenes/UIScene";
 import { KennyAssetService } from "./services/asset-service.js";
+import { LocalStorageSaveService } from "./services/save-service.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "./systems/touch-input-store.js";
+
+/** Registry key the shared SaveService is mounted under. */
+export const REGISTRY_KEY_SAVE_SERVICE = "saveService";
 
 /**
  * The complete list of scenes registered with the Phaser game, in boot order.
@@ -104,6 +108,16 @@ export function startGame(parent: HTMLElement): Phaser.Game {
         game.registry.set("devMode", import.meta.env.DEV);
         game.registry.set(REGISTRY_KEY_ASSET_SERVICE, new KennyAssetService());
         game.registry.set(REGISTRY_KEY_TOUCH_INPUT, new TouchInputStore());
+        // SaveService is browser-only (needs window.localStorage). Guard
+        // here so a future test-host that constructs the Phaser game
+        // without localStorage doesn't crash at boot.
+        try {
+          game.registry.set(REGISTRY_KEY_SAVE_SERVICE, new LocalStorageSaveService());
+        } catch (err) {
+          console.warn(
+            `game.ts postBoot: SaveService unavailable; progress will not persist (${String(err)})`,
+          );
+        }
       },
     },
 

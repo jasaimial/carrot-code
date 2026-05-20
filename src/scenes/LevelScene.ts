@@ -49,14 +49,18 @@ import {
   type ImageAssetDeclaration,
 } from "../services/asset-service.js";
 import { loadLevel, LevelLoadError } from "../services/level-loader.js";
+import { type SaveService } from "../services/save-service.js";
 import type { LevelData } from "../types/level.js";
 
 import { REGISTRY_KEY_ASSET_SERVICE } from "./BootScene.js";
+import { REGISTRY_KEY_SAVE_SERVICE } from "../game.js";
 
 /** Registry-event key the HUD listens to for hero-lives changes. */
 export const REGISTRY_KEY_HERO_LIVES = "heroLives";
 /** Registry-event key the HUD listens to for carrot-count changes. */
 export const REGISTRY_KEY_CARROT_COUNT = "carrotCount";
+/** Registry-event key the HUD listens to for powerup remaining ms. */
+export const REGISTRY_KEY_POWERUP_REMAINING_MS = "powerupRemainingMs";
 
 /** What this scene expects in its `init(data)` call. */
 interface LevelSceneData {
@@ -91,6 +95,7 @@ export class LevelScene extends Phaser.Scene {
     this.hasEnded = false;
     // Seed HUD state on the registry; UIScene reads + watches it.
     this.registry.set(REGISTRY_KEY_CARROT_COUNT, 0);
+    this.registry.set(REGISTRY_KEY_POWERUP_REMAINING_MS, 0);
   }
 
   /** Phaser hook — build the tilemap and configure the camera. */
@@ -117,6 +122,17 @@ export class LevelScene extends Phaser.Scene {
     this.hero?.update(dtMs);
     for (const enemy of this.enemies) {
       enemy.update(dtMs);
+    }
+    // Publish per-frame powerup remaining ms so the HUD ring can
+    // draw the depleting timer. Round to ints so the registry's
+    // change-detection doesn't fire every single frame (only when
+    // the rounded value changes).
+    if (this.hero !== undefined) {
+      const remaining = Math.round(this.hero.getPowerupRemainingMs() / 100) * 100;
+      const prev = this.registry.get(REGISTRY_KEY_POWERUP_REMAINING_MS) as unknown;
+      if (typeof prev !== "number" || prev !== remaining) {
+        this.registry.set(REGISTRY_KEY_POWERUP_REMAINING_MS, remaining);
+      }
     }
   }
 
@@ -288,10 +304,15 @@ export class LevelScene extends Phaser.Scene {
           break;
         }
         case "powerup": {
-          // Pickup factory throws on powerup in v0 (next-commit wiring).
-          // Tile-author can still place powerups; v0 just skips them
-          // visually so authoring isn't blocked.
-          console.warn(`LevelScene: skipping powerup "${entity.id}" (not yet wired in v0)`);
+          const { sprite, onCollect } = createPickup(this, entity.x, entity.y, entity);
+          this.physics.add.overlap(hero, sprite, () => {
+            onCollect();
+            hero.applyPowerup(entity.durationMs);
+            // Publish the freshly-applied window to the HUD. The
+            // remainingMs read in update() refreshes the counter
+            // each frame; this seeds the initial value.
+            this.registry.set(REGISTRY_KEY_POWERUP_REMAINING_MS, hero.getPowerupRemainingMs());
+          });
           break;
         }
       }
@@ -329,9 +350,39 @@ export class LevelScene extends Phaser.Scene {
       return;
     }
     this.hasEnded = true;
+    // Persist progress on level-complete. SaveService failure is
+    // non-blocking (Principle: don't crash the game over a save bug)
+    // — we log + continue. Gameover doesn't persist anything.
+    if (outcome === "complete") {
+      this.persistProgress();
+    }
     this.scene.pause();
     this.scene.stop("UIScene");
     this.scene.start("GameOverScene", { outcome, levelId: this.levelId });
+  }
+
+  /**
+   * Write the run's contributions into SaveState. Adds this level to
+   * `completedLevelIds`, adds this run's carrots to `lifetimeCarrots`.
+   * Failure is non-blocking and only logged.
+   */
+  private persistProgress(): void {
+    const saveService = this.registry.get(REGISTRY_KEY_SAVE_SERVICE) as SaveService | undefined;
+    if (saveService === undefined) {
+      // SaveService failed to construct at boot (e.g. private-mode storage
+      // disabled). Game-state changes are session-only.
+      return;
+    }
+    try {
+      const current = saveService.load();
+      saveService.save({
+        version: 1,
+        completedLevelIds: [...current.completedLevelIds, this.levelId],
+        lifetimeCarrots: current.lifetimeCarrots + this.carrotsCollected,
+      });
+    } catch (err) {
+      console.warn(`LevelScene: progress save failed: ${String(err)}`);
+    }
   }
 
   /** CSS hex string -> Phaser numeric color (0xRRGGBB). */

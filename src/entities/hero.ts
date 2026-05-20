@@ -29,11 +29,13 @@
 import Phaser from "phaser";
 
 import { HERO } from "../config/hero.js";
+import { POWERUPS } from "../config/powerups.js";
 import { CoyoteTimer } from "../systems/coyote-time.js";
 import { JumpBuffer } from "../systems/jump-buffer.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
 import { HeroLivesState, type HitOutcome } from "./hero-lives.js";
+import { HeroPowerupState } from "./hero-powerup.js";
 import { type HeroInput, resolveHeroFrameAction } from "./hero-input.js";
 
 // Re-export the pure-logic types + resolver so the rest of the codebase
@@ -69,6 +71,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   private readonly coyote: CoyoteTimer;
   private readonly buffer: JumpBuffer;
   private readonly lives: HeroLivesState;
+  private readonly powerup: HeroPowerupState;
   /**
    * Optional shared touch input. Present on touch devices when UIScene
    * has seeded the registry; `undefined` (or empty store) on desktop.
@@ -100,6 +103,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.coyote = new CoyoteTimer(HERO.coyoteTimeMs);
     this.buffer = new JumpBuffer(HERO.jumpBufferMs);
     this.lives = new HeroLivesState(HERO.startingLives, HERO.hitInvulnerabilityMs);
+    this.powerup = new HeroPowerupState(POWERUPS.invincibilityStackMode);
     // Picked up from the scene registry (seeded by game.ts at postBoot).
     this.touch = scene.registry.get(REGISTRY_KEY_TOUCH_INPUT) as TouchInputStore | undefined;
 
@@ -193,12 +197,20 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       body.setVelocityY(HERO.jumpReleaseVelocityCapPxPerSec);
     }
 
-    // --- Invulnerability blink ------------------------------------------
-    // While invulnerable, alpha-cycle the sprite for visual feedback.
-    // Sin-driven so it's smooth (no stutter on frame-time jitter).
-    if (this.lives.isInvulnerable(this.scene.time.now)) {
-      this.setAlpha(0.5 + 0.5 * Math.abs(Math.sin(this.scene.time.now / 60)));
+    // --- Visual feedback ------------------------------------------------
+    // Invulnerability (post-hit) alpha-cycles for damage feedback.
+    // Powered (powerup) tints the sprite gold-ish so the player can
+    // see "I'm currently immune". Both checks are cheap; the powerup
+    // tint takes precedence over the invuln blink.
+    const now = this.scene.time.now;
+    if (this.powerup.isPowered(now)) {
+      this.setAlpha(1);
+      this.setTint(0xfacc15); // PALETTE.uiPowerup gold; matches HUD timer.
+    } else if (this.lives.isInvulnerable(now)) {
+      this.clearTint();
+      this.setAlpha(0.5 + 0.5 * Math.abs(Math.sin(now / 60)));
     } else {
+      this.clearTint();
       this.setAlpha(1);
     }
   }
@@ -214,6 +226,11 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
    * @returns The outcome (`"hurt"` / `"gameover"` / `"ignored"`).
    */
   public takeHit(contactX: number): HitOutcome {
+    // Powered-up hero is immune. Don't decrement lives, don't knockback,
+    // don't start the post-hit invuln window.
+    if (this.powerup.isPowered(this.scene.time.now)) {
+      return "ignored";
+    }
     const outcome = this.lives.takeHit(this.scene.time.now);
     if (outcome === "hurt" || outcome === "gameover") {
       const body = this.body as Phaser.Physics.Arcade.Body;
@@ -227,5 +244,26 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Lives remaining. Used by the HUD. */
   public getLives(): number {
     return this.lives.lives;
+  }
+
+  /**
+   * Apply an invincibility power-up. Resets / extends / ignores the
+   * timer depending on POWERUPS.invincibilityStackMode (set at
+   * construction).
+   *
+   * @param durationMs - Duration of the power-up.
+   */
+  public applyPowerup(durationMs: number): void {
+    this.powerup.applyPowerup(this.scene.time.now, durationMs);
+  }
+
+  /** Whether the hero is currently in an invincibility window. */
+  public isPowered(): boolean {
+    return this.powerup.isPowered(this.scene.time.now);
+  }
+
+  /** Remaining ms on the powerup timer (0 if not powered). HUD reads this. */
+  public getPowerupRemainingMs(): number {
+    return this.powerup.remainingMs(this.scene.time.now);
   }
 }

@@ -33,11 +33,21 @@ import type { CarrotConfig, PowerupConfig } from "../types/entity-config.js";
  * tilemap_packed.png in the repo and update — single line change.
  */
 const CARROT_FRAME = 67;
+/**
+ * Default tilesheet frame for the invincibility power-up pickup.
+ * Picked from the items area of the tilemap (18×18 packed
+ * 20-per-row on `icons-pixel-platformer-tiles`). Tile index 44 is
+ * the heart shape; we re-use it as a visually-distinct pickup for
+ * v0. Custom art replaces this later. Eyeballed; swap with a single
+ * line if it renders the wrong tile.
+ */
+const POWERUP_FRAME = 44;
 
 /**
  * Build a pickup sprite from its EntityConfig. Returns the sprite +
  * an `onCollect` callback for the caller (LevelScene) to invoke on
- * overlap.
+ * overlap. For carrots: caller increments the carrot count. For
+ * powerups: caller invokes `hero.applyPowerup(config.durationMs)`.
  *
  * @param scene  - The owning scene.
  * @param x      - Spawn x in world coordinates.
@@ -54,25 +64,20 @@ export function createPickup(
   readonly sprite: Phaser.Physics.Arcade.Sprite;
   readonly onCollect: () => void;
 } {
-  if (config.kind === "powerup") {
-    // Powerup wiring lands in the next commit alongside Hero.applyPowerup.
-    // Throwing here keeps level-01 from silently shipping with a non-
-    // functional powerup if one is authored before the wiring exists.
-    throw new Error(
-      `createPickup: powerup (\`${config.id}\`) not yet wired in v0. ` +
-        "Remove the powerup from level-01.tmj or wait for the next commit.",
-    );
-  }
-
-  // --- Carrot branch ----------------------------------------------------
-  const sprite = scene.physics.add.sprite(x, y, config.spriteKey, CARROT_FRAME);
-  // Static body — carrots don't fall, don't get pushed. Disable gravity
-  // for this body specifically (the world gravity still applies to the
-  // hero and enemies).
+  // Pick the sprite frame based on kind. Both kinds share the same
+  // static-body setup (no gravity, immovable, slightly tighter hitbox).
+  const frame = config.kind === "powerup" ? POWERUP_FRAME : CARROT_FRAME;
+  const sprite = scene.physics.add.sprite(x, y, config.spriteKey, frame);
   const body = sprite.body as Phaser.Physics.Arcade.Body;
   body.setAllowGravity(false);
   body.setImmovable(true);
   body.setSize(14, 14).setOffset(2, 2);
+
+  // Powerup sprite gets a small gold tint so it reads differently from
+  // the orange carrot at a glance. Cleaner than re-coloring a tile.
+  if (config.kind === "powerup") {
+    sprite.setTint(0xfacc15);
+  }
 
   const onCollect = (): void => {
     sprite.destroy();
