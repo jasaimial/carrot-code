@@ -48,8 +48,8 @@ export const EN = {
   "menu.startHintTouch": "Tap anywhere to start",
 
   // --- First-time controls hint (LevelScene mount) ----------------------
-  "hint.controlsKeyboard": "← → to move    •    Space / W / ↑ to jump",
-  "hint.controlsTouch": "Use the on-screen buttons to move and jump",
+  "hint.controlsKeyboard": "← → move    •    Space jump    •    F throw carrot",
+  "hint.controlsTouch": "Move + jump with on-screen buttons. THROW a carrot to clear enemies.",
 
   // --- Audio mute toggle (UIScene corner button) ------------------------
   // Glyphs render cross-platform; emoji fallback fonts on iOS render
@@ -68,6 +68,7 @@ export const EN = {
   "touch.left": "◀",
   "touch.right": "▶",
   "touch.jump": "JUMP",
+  "touch.throw": "THROW",
   "touch.rotatePrompt": "📱 Rotate to landscape",
 
   // --- HUD labels (T035 / T043) -------------------------------------------

@@ -44,6 +44,7 @@ import { type LevelId } from "../data/levels/index.js";
 import { Enemy } from "../entities/enemy.js";
 import { Hero } from "../entities/hero.js";
 import { createPickup } from "../entities/pickup.js";
+import { Projectile } from "../entities/projectile.js";
 import {
   type AssetDeclaration,
   type AssetService,
@@ -90,6 +91,9 @@ export class LevelScene extends Phaser.Scene {
   private levelId: LevelId = "level-01";
   private hero: Hero | undefined;
   private readonly enemies: Enemy[] = [];
+  private readonly projectiles: Projectile[] = [];
+  /** Cached terrain layer so the per-frame fire-poll can wire colliders. */
+  private terrainLayer: Phaser.Tilemaps.TilemapLayer | undefined;
   private carrotsCollected = 0;
   private hasEnded = false;
   private spawnTimeMs = 0;
@@ -106,6 +110,8 @@ export class LevelScene extends Phaser.Scene {
     this.levelId = data.levelId;
     this.hero = undefined;
     this.enemies.length = 0;
+    this.projectiles.length = 0;
+    this.terrainLayer = undefined;
     this.carrotsCollected = 0;
     this.hasEnded = false;
     this.spawnTimeMs = 0;
@@ -129,6 +135,7 @@ export class LevelScene extends Phaser.Scene {
     // negative-depth Graphics objects don't have to fight for z-order.
     installBackdrop(this, map.widthInPixels, map.heightInPixels);
     const terrainLayer = this.renderTileLayersWithCollision(map);
+    this.terrainLayer = terrainLayer;
     this.spawnHero(level, terrainLayer);
     this.spawnTimeMs = this.time.now;
     this.dispatchEntities(level, terrainLayer);
@@ -147,9 +154,27 @@ export class LevelScene extends Phaser.Scene {
   /** Phaser hook — forward delta to the hero + each enemy. */
   public override update(_time: number, dtMs: number): void {
     this.hero?.update(dtMs);
-    for (const enemy of this.enemies) {
+    // Tick + cull enemies (dead enemies are destroyed by projectiles).
+    for (let i = this.enemies.length - 1; i >= 0; i -= 1) {
+      const enemy = this.enemies[i];
+      if (enemy?.active !== true) {
+        this.enemies.splice(i, 1);
+        continue;
+      }
       enemy.update(dtMs);
     }
+    // Tick projectiles + cull destroyed ones from our tracking array
+    // so we don't iterate dead refs forever.
+    for (let i = this.projectiles.length - 1; i >= 0; i -= 1) {
+      const p = this.projectiles[i];
+      if (p?.active !== true) {
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+      p.update();
+    }
+    // Fire-poll: if hero wants to throw + we have ammo, spawn one.
+    this.handleFirePoll();
     // Publish per-frame powerup remaining ms so the HUD ring can
     // draw the depleting timer. Round to ints so the registry's
     // change-detection doesn't fire every single frame (only when
@@ -162,6 +187,58 @@ export class LevelScene extends Phaser.Scene {
       }
     }
     this.evaluateNarratorBeats();
+  }
+
+  /**
+   * Per-frame fire-poll: ask the hero whether the player just pressed
+   * fire + cooldown allows; if yes, decrement ammo (carrot count) and
+   * spawn a projectile in the hero's facing direction. If no ammo,
+   * play the empty-thunk sound for feedback. Wires the new projectile
+   * against terrain (destroy on impact) + enemies (mutual destroy).
+   */
+  private handleFirePoll(): void {
+    const hero = this.hero;
+    if (hero === undefined || this.terrainLayer === undefined) {
+      return;
+    }
+    if (!hero.consumeFireRequest()) {
+      return;
+    }
+    const soundFx = this.requireSoundFx();
+    if (this.carrotsCollected <= 0) {
+      // Out of ammo: short empty-thunk so the player learns the rule.
+      soundFx?.playEmpty();
+      return;
+    }
+    // Spend one carrot of ammo.
+    this.carrotsCollected -= 1;
+    this.registry.set(REGISTRY_KEY_CARROT_COUNT, this.carrotsCollected);
+
+    // Spawn the projectile slightly in front of the hero so it doesn't
+    // collide with the hero's own body on frame 1.
+    const dir = hero.getFacingDirection();
+    const spawnX = hero.x + dir * 12;
+    const projectile = new Projectile(this, spawnX, hero.y, dir);
+    this.projectiles.push(projectile);
+
+    // Projectile destroyed by terrain. Use overlap not collider so the
+    // projectile vanishes cleanly rather than bouncing off a wall.
+    this.physics.add.overlap(projectile, this.terrainLayer, () => {
+      projectile.destroy();
+    });
+
+    // Projectile destroyed by enemy and the enemy with it.
+    for (const enemy of this.enemies) {
+      this.physics.add.overlap(projectile, enemy, () => {
+        if (!enemy.active || !projectile.active) {
+          return;
+        }
+        projectile.destroy();
+        enemy.destroy();
+      });
+    }
+
+    soundFx?.playThrow();
   }
 
   /**

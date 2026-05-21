@@ -55,4 +55,24 @@ export const HERO = {
   hitInvulnerabilityMs: 1000,
   /** Delay before respawning at the level spawn after a hit. */
   respawnDelayMs: 300,
+
+  // --- Projectile / carrot-throw ----------------------------------------
+  /**
+   * Horizontal speed of a thrown carrot in pixels per second. Fast
+   * enough to feel responsive, slow enough that the player can see
+   * the carrot in flight (helps "I aimed wrong" reads as a skill
+   * issue, not a glitch).
+   */
+  projectileSpeedPxPerSec: 360,
+  /**
+   * Max travel distance from spawn before the projectile self-
+   * destructs. ~16 tiles is enough to clear an enemy from a safe
+   * distance without "shoot across the whole map" feel.
+   */
+  projectileMaxDistancePx: 320,
+  /**
+   * Cooldown between throws in milliseconds. Prevents button-mash
+   * spam emptying the carrot stockpile in one frame.
+   */
+  projectileCooldownMs: 250,
 } as const;

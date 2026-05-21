@@ -88,10 +88,22 @@ export const UI = {
   touchRightButtonLeftPx: 196,
   /** Distance from the right edge to the jump button center. */
   touchJumpButtonRightPx: 80,
+  /**
+   * Distance from the right edge to the throw button center. Stacked
+   * above JUMP so right-thumb users can reach both without moving.
+   */
+  touchThrowButtonRightPx: 80,
+  /** Distance from the bottom edge to the throw button center. */
+  touchThrowButtonBottomPx: 180,
   /** Touch button fill opacity (0..1). Low so it doesn't dominate. */
   touchButtonOpacity: 0.35,
   /** Touch button opacity boost when pressed. */
   touchButtonPressedOpacity: 0.7,
   /** Touch button label font size. */
   touchButtonLabelFontSizePx: 36,
+  /**
+   * Touch button label font size for the THROW button. Smaller than
+   * jump because "THROW" is more characters than "JUMP".
+   */
+  touchThrowButtonLabelFontSizePx: 22,
 } as const;

@@ -123,6 +123,28 @@ export class SoundFx {
     }
   }
 
+  /** Short descending blip for the carrot-throw projectile. */
+  public playThrow(): void {
+    this.playEnvelope({
+      type: "triangle",
+      freqStartHz: 880,
+      freqEndHz: 440,
+      durationSec: 0.07,
+      peakGain: 0.09,
+    });
+  }
+
+  /** Soft "thud" tone for empty-ammo (no carrots to throw). */
+  public playEmpty(): void {
+    this.playEnvelope({
+      type: "sine",
+      freqStartHz: 180,
+      freqEndHz: 120,
+      durationSec: 0.1,
+      peakGain: 0.07,
+    });
+  }
+
   /**
    * Internal: schedule one oscillator with an attack-decay envelope.
    * Auto-stops + disconnects when the envelope ends.

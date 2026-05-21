@@ -43,6 +43,13 @@ export class TouchInputStore {
    * input modes identically.
    */
   private _jumpJustPressed = false;
+  private _throwHeld = false;
+  /**
+   * True for exactly one frame after a fresh setThrow(true). Mirrors
+   * the jump one-shot pattern — the Hero consumes it once per fresh
+   * tap to fire a carrot projectile.
+   */
+  private _throwJustPressed = false;
 
   /** Set the left-direction held state. */
   public setLeft(down: boolean): void {
@@ -67,6 +74,20 @@ export class TouchInputStore {
       this._jumpJustPressed = true;
     }
     this._jumpHeld = down;
+  }
+
+  /**
+   * Set the throw button state. Same one-shot semantics as setJump:
+   * fresh press queues one consumable press; releases just clear
+   * the held state.
+   *
+   * @param down - Whether the throw button is currently held.
+   */
+  public setThrow(down: boolean): void {
+    if (down && !this._throwHeld) {
+      this._throwJustPressed = true;
+    }
+    this._throwHeld = down;
   }
 
   /** Whether the left button is currently held. */
@@ -95,6 +116,18 @@ export class TouchInputStore {
   public consumeJumpPressed(): boolean {
     const wasPressed = this._jumpJustPressed;
     this._jumpJustPressed = false;
+    return wasPressed;
+  }
+
+  /**
+   * One-shot consumer for the throw button — mirror of
+   * {@link consumeJumpPressed}.
+   *
+   * @returns `true` if a fresh throw-press is pending.
+   */
+  public consumeThrowPressed(): boolean {
+    const wasPressed = this._throwJustPressed;
+    this._throwJustPressed = false;
     return wasPressed;
   }
 }

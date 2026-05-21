@@ -187,6 +187,15 @@ export class UIScene extends Phaser.Scene {
       t("touch.jump"),
       (down) => this.store?.setJump(down),
     );
+    // THROW button stacked above JUMP so right-thumb users can reach
+    // both without moving the thumb across the screen.
+    this.buildButton(
+      this.scale.width - UI.touchThrowButtonRightPx,
+      this.scale.height - UI.touchThrowButtonBottomPx,
+      t("touch.throw"),
+      (down) => this.store?.setThrow(down),
+      UI.touchThrowButtonLabelFontSizePx,
+    );
 
     this.setupPortraitWatch();
     this.tryLockLandscape();
@@ -236,6 +245,8 @@ export class UIScene extends Phaser.Scene {
     this.store?.setRight(false);
     this.store?.setJump(false);
     this.store?.consumeJumpPressed();
+    this.store?.setThrow(false);
+    this.store?.consumeThrowPressed();
   }
 
   /** Retrieve the shared TouchInputStore (game.ts seeds it at postBoot). */
@@ -267,6 +278,7 @@ export class UIScene extends Phaser.Scene {
     cy: number,
     label: string,
     onPressChange: (down: boolean) => void,
+    fontSizeOverridePx?: number,
   ): void {
     const size = UI.touchButtonSizePx;
     const fillColor = this.hexToNumber(PALETTE_HEX.bgDialog);
@@ -277,10 +289,11 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: false });
 
+    const fontSizePx = fontSizeOverridePx ?? UI.touchButtonLabelFontSizePx;
     const text = this.add
       .text(cx, cy, label, {
         fontFamily: "monospace",
-        fontSize: `${UI.touchButtonLabelFontSizePx.toString()}px`,
+        fontSize: `${fontSizePx.toString()}px`,
         color: PALETTE_HEX.textCream,
         align: "center",
       })

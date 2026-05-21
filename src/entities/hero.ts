@@ -93,7 +93,21 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     readonly up: Phaser.Input.Keyboard.Key;
     readonly w: Phaser.Input.Keyboard.Key;
     readonly space: Phaser.Input.Keyboard.Key;
+    readonly f: Phaser.Input.Keyboard.Key;
+    readonly x: Phaser.Input.Keyboard.Key;
   };
+  /**
+   * Direction the hero is facing (+1 right, -1 left). Updated when
+   * the player moves; defaults to +1 on spawn. Drives the direction
+   * of thrown projectiles when the player fires while standing still.
+   */
+  private facingDirection: 1 | -1 = 1;
+  /**
+   * Timestamp of the last fired projectile, used to enforce the
+   * projectile cooldown. Initialized to a value far enough in the past
+   * that the first fire is allowed.
+   */
+  private lastFireTimeMs = -Infinity;
 
   /**
    * Construct the hero at the given world coordinates. The constructor
@@ -144,6 +158,8 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
       w: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W),
       space: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      f: kb.addKey(Phaser.Input.Keyboard.KeyCodes.F),
+      x: kb.addKey(Phaser.Input.Keyboard.KeyCodes.X),
     };
   }
 
@@ -195,6 +211,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     } else {
       body.setVelocityX(action.moveDirection * HERO.moveSpeedPxPerSec);
       this.setFlipX(action.moveDirection === -1);
+      this.facingDirection = action.moveDirection === -1 ? -1 : 1;
     }
 
     // --- Apply jump ------------------------------------------------------
@@ -274,5 +291,47 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Remaining ms on the powerup timer (0 if not powered). HUD reads this. */
   public getPowerupRemainingMs(): number {
     return this.powerup.remainingMs(this.scene.time.now);
+  }
+
+  /**
+   * Direction the hero is currently facing (+1 right, -1 left).
+   * LevelScene reads this to aim a fired projectile.
+   */
+  public getFacingDirection(): 1 | -1 {
+    return this.facingDirection;
+  }
+
+  /**
+   * Check + consume a fresh "fire" input request from this frame.
+   *
+   * Reads:
+   *   - Keyboard F or X (JustDown semantics).
+   *   - Touch throw button (consumeThrowPressed one-shot).
+   *
+   * Then applies the projectile cooldown: returns false if the last
+   * fire was within HERO.projectileCooldownMs even if the input
+   * fired. Cooldown advances `lastFireTimeMs` only on actual fire,
+   * so cooldown-blocked taps don't extend the window further.
+   *
+   * Ammo (carrot count) check is the CALLER's responsibility - this
+   * method only resolves the input gesture. LevelScene checks whether
+   * a carrot is available before actually spawning the projectile.
+   *
+   * @returns `true` if a fresh fire request is pending AND cooldown allows.
+   */
+  public consumeFireRequest(): boolean {
+    const fired =
+      Phaser.Input.Keyboard.JustDown(this.keys.f) ||
+      Phaser.Input.Keyboard.JustDown(this.keys.x) ||
+      (this.touch?.consumeThrowPressed() ?? false);
+    if (!fired) {
+      return false;
+    }
+    const now = this.scene.time.now;
+    if (now - this.lastFireTimeMs < HERO.projectileCooldownMs) {
+      return false;
+    }
+    this.lastFireTimeMs = now;
+    return true;
   }
 }
