@@ -1,0 +1,38 @@
+# Build / install / coverage output — same set as .gitignore for these.
+node_modules/
+dist/
+dev-dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Lockfiles: npm owns formatting.
+package-lock.json
+
+# Tiled JSON exports: machine-generated, don't reflow.
+*.tmj
+
+# -----------------------------------------------------------------------------
+# Spec-kit owned (the tool ships and updates these — never reformat).
+# Reformatting would create a fork we'd have to maintain against every
+# spec-kit upgrade.
+# -----------------------------------------------------------------------------
+.specify/
+.github/prompts/
+.github/agents/
+.github/copilot-instructions.md
+
+# -----------------------------------------------------------------------------
+# Spec / docs / journals: deliberately excluded.
+#
+# These files are written by hand and live inside spec-kit's directory
+# conventions. Auto-formatting them creates a noisy diff and, on Windows,
+# has been observed to introduce em-dash mojibake (UTF-8 read as cp1252).
+# Format individual files manually with `npx prettier --write <path>` if
+# you really want to — but never run `npm run format` against the repo as
+# a whole.
+#
+# Recovered from a 50-file auto-format mishap on 2026-05-18 (T008 session).
+# -----------------------------------------------------------------------------
+docs/
+specs/

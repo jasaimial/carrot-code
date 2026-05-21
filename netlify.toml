@@ -1,0 +1,100 @@
+# -----------------------------------------------------------------------------
+# NOTE (2026-05): This project deploys via Azure Static Web Apps, not Netlify.
+# See:
+#   - .github/workflows/azure-static-web-apps-happy-desert-0fe507f1e.yml
+#   - ./staticwebapp.config.json
+#   - specs/002-shipping-infrastructure/
+#
+# This file is retained for reference only; Netlify is not invoked by any
+# current pipeline. Removal is out of scope for the 002 feature (separable
+# cleanup spec if ever desired). Per FR-020 of 002.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# carrot-code — Netlify deploy config
+#
+# Constitution v1.1.0:
+#   - Principle V  ("Vertical Slice"): deployed to a public HTTPS URL.
+#   - Principle VIII ("Ships From Day One"): auto-deploy from main.
+#
+# See specs/001-vertical-slice/plan.md and research.md#q6 for why Netlify
+# vs GitHub Pages vs Cloudflare Pages.
+#
+# This file is the source of truth for the deploy. Netlify reads it from
+# the repo root on every build; the Netlify dashboard should NOT override
+# any of these settings (if it does, the dashboard wins — bad — so keep
+# everything here and leave the dashboard at defaults).
+# -----------------------------------------------------------------------------
+
+[build]
+  # Vite build emits a static site to dist/. No SSR, no edge functions.
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Pin Node version to match CI (see .github/workflows/ci.yml).
+  NODE_VERSION = "20"
+
+# SPA fallback: every unknown path returns index.html so client-side routing
+# (if we ever add it) and PWA deep links work. Status 200 (not 301) so PWA
+# install/refresh behaves correctly.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# -----------------------------------------------------------------------------
+# Headers
+# -----------------------------------------------------------------------------
+
+# Hashed asset filenames coming out of Vite — safe to cache aggressively.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Service worker MUST NOT be cached by the browser — otherwise users get
+# stuck on old versions even when a new build is deployed.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+# Manifest changes occasionally (icon updates, name changes). Short cache.
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "public, max-age=600"
+    Content-Type = "application/manifest+json"
+
+# Baseline security headers + a Content Security Policy.
+#
+# CSP rationale (kept tight; loosen ONLY with a journal entry explaining why):
+#   default-src 'self'    — same origin only by default.
+#   img-src 'self' data: blob:
+#                         — Phaser sprites are bundled (self); 'data:' for
+#                           tiny canvas-generated icons; 'blob:' for any
+#                           runtime-generated image (e.g., screenshots).
+#   script-src 'self'     — no third-party scripts. NO 'unsafe-eval' (Phaser 3
+#                           does not require it at runtime).
+#   style-src 'self' 'unsafe-inline'
+#                         — Phaser injects a tiny inline style on its canvas
+#                           wrapper; without 'unsafe-inline' the canvas
+#                           rendering breaks. Revisit if we adopt a stricter
+#                           policy with nonce-based styles.
+#   connect-src 'self'    — no telemetry, no analytics (Principle XI).
+#   worker-src 'self'     — service worker comes from same origin.
+#   manifest-src 'self'
+#   object-src 'none'     — no Flash / plugin embeds.
+#   base-uri 'self'       — block <base> hijacking.
+#   form-action 'self'    — no forms today; defensive.
+#   frame-ancestors 'none'
+#                         — no embedding the game in someone else's site.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
