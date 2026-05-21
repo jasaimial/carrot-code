@@ -191,14 +191,16 @@ export class LevelScene extends Phaser.Scene {
    * can fire.
    */
   private setupNarratorDismissWatch(): void {
-    this.registry.events.on(
-      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_NARRATOR_TEXT,
-      (_parent: unknown, value: unknown) => {
-        if (typeof value === "string" && value === "") {
-          this.activeBeatId = undefined;
-        }
-      },
-    );
+    const onNarratorChange = (_parent: unknown, value: unknown): void => {
+      if (typeof value === "string" && value === "") {
+        this.activeBeatId = undefined;
+      }
+    };
+    const eventName = Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_NARRATOR_TEXT;
+    this.registry.events.on(eventName, onNarratorChange);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.registry.events.off(eventName, onNarratorChange);
+    });
   }
 
   /** Pull the cached Tiled JSON for the active level. */

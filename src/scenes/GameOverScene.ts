@@ -89,16 +89,25 @@ export class GameOverScene extends Phaser.Scene {
         backgroundColor: PALETTE_HEX.bgDialog,
         padding: { x: 16, y: 8 },
       })
+      .setOrigin(0.5);
+
+    // Use a larger invisible rectangle behind the text as the hit area
+    // so the button is easy to click/tap (a text-only hit area is the
+    // tight glyph bounds, which is fiddly on desktop and unusable on
+    // touch). The visible text stays on top for the user; the hit zone
+    // is what receives input.
+    const hitZone = this.add
+      .rectangle(width / 2, height / 2 + 32, 260, 56)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
 
-    playAgain.on(Phaser.Input.Events.POINTER_OVER, () => {
+    hitZone.on(Phaser.Input.Events.POINTER_OVER, () => {
       playAgain.setColor(PALETTE_HEX.textCream);
     });
-    playAgain.on(Phaser.Input.Events.POINTER_OUT, () => {
+    hitZone.on(Phaser.Input.Events.POINTER_OUT, () => {
       playAgain.setColor(PALETTE_HEX.uiCarrot);
     });
-    playAgain.on(Phaser.Input.Events.POINTER_DOWN, () => {
+    hitZone.on(Phaser.Input.Events.POINTER_DOWN, () => {
       this.restartLevel();
     });
 
@@ -118,13 +127,18 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   /**
-   * Stop the LevelScene that was paused on end-trigger and start a
-   * fresh LevelScene + BootScene cycle. We go through BootScene so
-   * any per-level state (cached tilemap, etc.) is rebuilt cleanly.
+   * Restart by deferring the scene transition by a tick so the current
+   * click event finishes propagating before scenes start/stop. Going
+   * through BootScene proved fragile (empty-loader hang), so we
+   * transition straight to a fresh LevelScene; assets are already
+   * cached from the first boot.
    */
   private restartLevel(): void {
-    this.scene.stop("LevelScene");
-    this.scene.start("BootScene", { levelId: this.levelId });
+    this.time.delayedCall(0, () => {
+      this.scene.stop("UIScene");
+      this.scene.stop("LevelScene");
+      this.scene.start("LevelScene", { levelId: this.levelId });
+    });
   }
 
   /** CSS hex string -> Phaser numeric color (0xRRGGBB). */
