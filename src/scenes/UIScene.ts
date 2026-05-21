@@ -71,6 +71,41 @@ export class UIScene extends Phaser.Scene {
   private narratorBodyText: Phaser.GameObjects.Text | undefined;
   /** Whether a narrator dialog is currently visible. */
   private narratorVisible = false;
+  /** Container for the first-input controls hint (auto-fades out). */
+  private controlsHintContainer: Phaser.GameObjects.Container | undefined;
+  /** Auto-fade-out timer for the controls hint (canceled on first input). */
+  private controlsHintTimer: Phaser.Time.TimerEvent | undefined;
+  /** True once the controls hint has been dismissed (any-cause); blocks re-trigger. */
+  private controlsHintDismissed = false;
+
+  // Bound registry-event handlers. Stored so we can `off` them in
+  // shutdown() — otherwise stale listeners survive Play-again and
+  // fire against destroyed game objects (drawImage on null crash).
+  private readonly onLivesChanged = (_p: unknown, value: unknown): void => {
+    if (typeof value === "number") {
+      this.buildHearts(value);
+    }
+  };
+  private readonly onCarrotsChanged = (_p: unknown, value: unknown): void => {
+    if (typeof value === "number") {
+      this.carrotCountText?.setText(this.formatCarrotCount(value));
+    }
+  };
+  private readonly onPowerChanged = (_p: unknown, value: unknown): void => {
+    if (typeof value === "number") {
+      this.updatePowerTimer(value);
+    }
+  };
+  private readonly onNarratorChanged = (_p: unknown, value: unknown): void => {
+    if (typeof value !== "string") {
+      return;
+    }
+    if (value === "") {
+      this.hideNarrator();
+    } else {
+      this.showNarrator(value);
+    }
+  };
 
   public constructor() {
     super({ key: "UIScene" });
@@ -82,6 +117,13 @@ export class UIScene extends Phaser.Scene {
 
     // HUD (hearts + carrot count) renders on both desktop and mobile.
     this.buildHud();
+
+    // First-input controls hint (auto-dismisses on first move/jump or
+    // after a few seconds). Reset on every UIScene create so it
+    // re-shows on Play-again — cheap, and an attendee who replays a
+    // minute later may have forgotten the keymap.
+    this.controlsHintDismissed = false;
+    this.showControlsHint();
 
     if (!isTouchDevice()) {
       // Desktop browsers (mouse + keyboard) get no touch buttons. The
@@ -125,6 +167,30 @@ export class UIScene extends Phaser.Scene {
   /** Phaser hook — clean up the MediaQueryList listener. */
   public shutdown(): void {
     this.releaseOrientationWatch();
+    // Cancel the controls-hint timer if it's still pending; otherwise
+    // it fires against this destroyed scene's GameObjects.
+    this.controlsHintTimer?.remove(false);
+    this.controlsHintTimer = undefined;
+    this.controlsHintContainer?.destroy();
+    this.controlsHintContainer = undefined;
+    // Remove registry-event listeners; otherwise they fire after
+    // restart against this destroyed scene's GameObjects.
+    this.registry.events.off(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_HERO_LIVES,
+      this.onLivesChanged,
+    );
+    this.registry.events.off(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_CARROT_COUNT,
+      this.onCarrotsChanged,
+    );
+    this.registry.events.off(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_POWERUP_REMAINING_MS,
+      this.onPowerChanged,
+    );
+    this.registry.events.off(
+      Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_NARRATOR_TEXT,
+      this.onNarratorChanged,
+    );
     // Clear the store so a returning desktop player after restart
     // doesn't see stale touch flags.
     this.store?.setLeft(false);
@@ -353,29 +419,17 @@ export class UIScene extends Phaser.Scene {
     // Re-render hearts when LevelScene publishes a new life count.
     this.registry.events.on(
       Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_HERO_LIVES,
-      (_parent: unknown, value: unknown) => {
-        if (typeof value === "number") {
-          this.buildHearts(value);
-        }
-      },
+      this.onLivesChanged,
     );
     // Update the carrot counter text when count changes.
     this.registry.events.on(
       Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_CARROT_COUNT,
-      (_parent: unknown, value: unknown) => {
-        if (typeof value === "number") {
-          this.carrotCountText?.setText(this.formatCarrotCount(value));
-        }
-      },
+      this.onCarrotsChanged,
     );
     // Update / hide the power-up timer as remaining ms changes.
     this.registry.events.on(
       Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_POWERUP_REMAINING_MS,
-      (_parent: unknown, value: unknown) => {
-        if (typeof value === "number") {
-          this.updatePowerTimer(value);
-        }
-      },
+      this.onPowerChanged,
     );
   }
 
@@ -484,16 +538,7 @@ export class UIScene extends Phaser.Scene {
   private setupNarratorSubscription(): void {
     this.registry.events.on(
       Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_NARRATOR_TEXT,
-      (_parent: unknown, value: unknown) => {
-        if (typeof value !== "string") {
-          return;
-        }
-        if (value === "") {
-          this.hideNarrator();
-        } else {
-          this.showNarrator(value);
-        }
-      },
+      this.onNarratorChanged,
     );
     // Surface an already-active beat if UIScene launches after LevelScene
     // has already published one (e.g. fast spawn + delayMs == 0).
@@ -584,5 +629,89 @@ export class UIScene extends Phaser.Scene {
       return;
     }
     this.registry.set(REGISTRY_KEY_NARRATOR_TEXT, "");
+  }
+
+  // ---------- First-input controls hint -----------------------------------
+  //
+  // Shown briefly on every level mount so a first-time player (or a
+  // returning attendee on their second run) sees the controls without
+  // having to guess. Auto-dismisses on:
+  //   1. Any keyboard input (any keydown).
+  //   2. Any pointer/touch input anywhere on the canvas.
+  //   3. A 4-second timeout (defensive: if for some reason no input
+  //      arrives, the hint still goes away on its own).
+  // Whichever happens first.
+  //
+  // Position: upper-middle of the screen (y ~ 28% of height) so it
+  // doesn't fight with the top HUD (hearts / carrots / powerup timer)
+  // or the bottom narrator dialog. Fades out via a tween so the
+  // dismissal feels intentional rather than abrupt.
+
+  /** Build the controls hint container + wire dismissal triggers. */
+  private showControlsHint(): void {
+    const { width, height } = this.scale;
+    const hintText = isTouchDevice() ? t("hint.controlsTouch") : t("hint.controlsKeyboard");
+    const cx = width / 2;
+    const cy = Math.round(height * 0.28);
+
+    const text = this.add
+      .text(cx, cy, hintText, {
+        fontFamily: "monospace",
+        fontSize: "16px",
+        color: PALETTE_HEX.textCream,
+        align: "center",
+        backgroundColor: PALETTE_HEX.bgDialog,
+        padding: { x: 14, y: 8 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    this.controlsHintContainer = this.add.container(0, 0, [text]).setDepth(1500);
+
+    // Auto-dismiss after 4s if the player hasn't moved yet.
+    this.controlsHintTimer = this.time.delayedCall(4000, () => {
+      this.dismissControlsHint();
+    });
+
+    // Dismiss on first keyboard input. `once` removes the listener
+    // after firing, so subsequent keypresses don't re-trigger.
+    if (this.input.keyboard !== null) {
+      this.input.keyboard.once(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, () => {
+        this.dismissControlsHint();
+      });
+    }
+
+    // Dismiss on first pointer/touch input anywhere. Note this also
+    // fires for taps on the touch buttons (their pointerdown bubbles
+    // to the scene input), which is exactly what we want.
+    this.input.once(Phaser.Input.Events.POINTER_DOWN, () => {
+      this.dismissControlsHint();
+    });
+  }
+
+  /** Fade the controls hint out and tear it down. Idempotent. */
+  private dismissControlsHint(): void {
+    if (this.controlsHintDismissed) {
+      return;
+    }
+    this.controlsHintDismissed = true;
+    this.controlsHintTimer?.remove(false);
+    this.controlsHintTimer = undefined;
+
+    const container = this.controlsHintContainer;
+    if (container === undefined) {
+      return;
+    }
+    this.tweens.add({
+      targets: container,
+      alpha: 0,
+      duration: 250,
+      onComplete: () => {
+        container.destroy();
+        if (this.controlsHintContainer === container) {
+          this.controlsHintContainer = undefined;
+        }
+      },
+    });
   }
 }

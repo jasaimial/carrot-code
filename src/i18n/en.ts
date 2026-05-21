@@ -39,6 +39,18 @@ export const EN = {
   "dev.gameOverStub": "GameOverScene stub\n(end-of-run UI lands in T036)",
   "dev.fpsLabel": "FPS",
 
+  // --- Menu / title screen (demo build) ---------------------------------
+  "menu.title": "CARROT CODE",
+  "menu.tagline": "A small platformer with a big mouth.",
+  "menu.versionBadge": "v0.1 — feedback build",
+  "menu.playButton": "▶ Play",
+  "menu.startHintDesktop": "Press Enter or Space — or click Play",
+  "menu.startHintTouch": "Tap anywhere to start",
+
+  // --- First-time controls hint (LevelScene mount) ----------------------
+  "hint.controlsKeyboard": "← → to move    •    Space / W / ↑ to jump",
+  "hint.controlsTouch": "Use the on-screen buttons to move and jump",
+
   // --- Boot loading screen (T032). Visible briefly while assets preload. ---
   "boot.loading": "Loading…",
 

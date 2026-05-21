@@ -119,8 +119,13 @@ export class BootScene extends Phaser.Scene {
 
     // Phaser fires `complete` even when the loader queue is empty,
     // so this works whether the asset list has 0 or N entries.
+    //
+    // We hand off to MenuScene (the title screen) rather than directly
+    // into LevelScene so the player sees the framing screen before
+    // dropping into gameplay. MenuScene's Play button starts LevelScene
+    // with the same levelId.
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
-      this.scene.start("LevelScene", { levelId: this.levelId });
+      this.scene.start("MenuScene", { levelId: this.levelId });
     });
     this.load.start();
 
@@ -129,8 +134,13 @@ export class BootScene extends Phaser.Scene {
     // ends up empty. In that case `complete` does NOT fire reliably
     // across Phaser versions and BootScene gets stuck on "Loading…".
     // Detect the empty-queue case and transition directly.
+    //
+    // NOTE: GameOverScene's "Play again" path restarts LevelScene
+    // directly (it doesn't go back through BootScene or MenuScene), so
+    // this empty-queue path is only hit on the very first boot when
+    // the AssetService declares zero loads.
     if (this.load.totalToLoad === 0) {
-      this.scene.start("LevelScene", { levelId: this.levelId });
+      this.scene.start("MenuScene", { levelId: this.levelId });
     }
   }
 
