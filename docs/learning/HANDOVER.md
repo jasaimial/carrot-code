@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-21 (demo-sprint polish: MenuScene + controls hint + parallax backdrop + collect/pickup juice + WebAudio SFX)
-**Active branches:** [`001-vertical-slice`](https://github.com/jasaimial/carrot-code/pull/1) and `main`
-**Current task:** **Pre-demo polish landed; awaits maintainer smoke-test + T051 sign-off + merge to `main` for the Saturday cohort demo.** Four new commits ahead of last handover: `feat(demo)` menu screen + first-input controls hint, `docs(art)` art-direction.md v0.1, `feat(visual)` parallax backdrop + collect burst + powerup flash, `feat(audio)` WebAudio chip-tune SFX + mute toggle. All five gates green (99 tests).
-**Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `001-vertical-slice`; rebuild after the 2026-05-21 polish push takes 3-5 min)
-**Local dev:** `npm run dev` → see the title screen → click Play (or Enter/Space, or tap-anywhere on touch) → controls hint appears top-center for ~4s or until first input → narrator beat fires at +2s bottom-center → walk right, collect carrots (orange particle burst + chime), grab gold powerup (gold flash + arp), survive slime contact, reach end-trigger → Play-again returns directly to LevelScene (skipping menu) for tight replay loop.
+**Last updated:** 2026-05-21 (v0.1-demo tagged + merged to main)
+**Active branch:** `main` (production). The 001-vertical-slice feature branch is now merged + tag-locked at `v0.1-demo` → commit `2a195a5`. Future work moves to new feature branches off `main`.
+**Current state:** **v0.1 demo build is live and tag-locked.** All P0 demo-sprint work shipped: title screen, narrator, lives + powerup + persistence, parallax backdrop, particles, chiptune SFX, mute toggle, carrot-throw shooting mechanic, extended 120-tile 4-section level, Play-again restart hardened against the registry-listener race documented at 2026-05-21.
+**Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `main`). Title-screen bottom-right stamps the live commit's short SHA + UTC build timestamp so cache-vs-fresh is verifiable at a glance.
+**Local dev:** `npm run dev` → title screen → Play → walk right, intro carrots → first slime + powerup → jump the 2 ground gaps, throw carrots (F or X on keyboard / THROW button on touch) to clear the platform-mounted slimes → final climb to bonus powerup + end-trigger. Run length: ~60-90s.
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -18,42 +18,26 @@
 
 ## TL;DR — where we are
 
-- **Phase 1 (Setup) complete** — toolchain, CI, deploy config, README.
-- **Phase 2 (Foundational) complete** — every prerequisite is on disk, typed,
-  and tested.
-- **Phase 3 (US1, P1 MVP-floor) SHIPPED.** Playtest sign-off recorded.
-- **Phase 4 (US2, P2) SHIPPED.** Powerup + SaveService + cross-session persistence.
-- **Phase 5 (US3, P3) minimal feature-complete; awaits T051 sign-off.**
-  Narrator beat fires at +2s with original prose, dismiss via Space/Enter/tap,
-  re-fires on replay. Maintainer must walk
-  [the US3 playtest checklist](../../specs/001-vertical-slice/playtests/us3.md)
-  and add their sign-off line at the bottom.
-- **Demo-sprint polish layer SHIPPED** (2026-05-21, four commits ahead of US3):
-  * MenuScene title screen graduates from stub: "CARROT CODE" title,
-    narrator-voice tagline ("A small platformer with a big mouth."),
-    "v0.1 - feedback build" version badge, Play button + keyboard +
-    tap-anywhere on touch. BootScene now routes to MenuScene, not
-    LevelScene; Play-again still goes direct to LevelScene.
-  * First-input controls hint overlay in UIScene: shows ~28% from top,
-    auto-dismisses on first key/tap or after 4s, platform-appropriate
-    text ("Arrow keys to move / Space to jump" vs "Use the on-screen
-    buttons"), tween fade-out.
-  * Parallax backdrop in LevelScene: cyan-to-sage sky gradient (camera-
-    locked) + two procedural hill silhouette layers at scrollFactor 0.3
-    and 0.55. All Graphics-drawn, no new image assets.
-  * Particle bursts: 6 carrot-glyph particles on collect (arcing,
-    fading); brief scale-pulse + cream tint flash on hero at powerup
-    pickup.
-  * Audio: WebAudio-synthesized chiptune SFX for jump (sweep), carrot
-    collect (two-tone chime), powerup pickup (4-note arp). Mute toggle
-    button bottom-right; state persists in sessionStorage. No ambient
-    music yet (would require a real audio file asset).
+- **v0.1-demo shipped 2026-05-21.** Tagged at commit `2a195a5` on `main`.
+  Branch protection is enforced on main: PR + CI green + linear history
+  required. Production deploys auto-trigger on push to main via the SWA
+  workflow.
+- **Phases 1-5 all complete on disk.** Vertical-slice spec (001) is
+  demoable end-to-end; demo-sprint polish layer ships on top.
+- **Carrot-throw mechanic** (post-original-spec addition): hero spends
+  one collected carrot per throw, projectile travels horizontally, hits
+  enemy = mutual destroy. Adds risk/reward to collection. Section 3 of
+  the extended level requires it (slimes on narrow platforms above
+  ground gaps); sections 1-2 don't, so the mechanic introduces itself
+  organically through level design.
 - **Demo target:** in-person cohort, **Saturday 2026-05-23**. Maintainer
-  takes notes via observation; no in-build feedback form needed.
-- **US3 next** — sign off T051, then optional T060 polish (tune values
-  from cohort feedback). Phase 6 (US4 PWA install) is post-demo.
-- **Repo is public**, CI is green on PR #1, branch protection on `main`
-  requires CI green. Principle VIII is mechanically enforced.
+  takes notes via observation + conversation; no in-build feedback form.
+- **What's NOT in v0.1-demo** (post-cohort backlog): T051 narrator
+  playtest sign-off, adaptive narrator prototype, cross-browser
+  baseline matrix (T064a), CC0 audio asset swap, code-splitting, real
+  PWA icon art (placeholders ship).
+- **Repo is public**, CI mechanically enforces all five gates on main
+  (Principle VIII).
 
 ## Quick-start: come back to a working dev loop
 
@@ -204,32 +188,28 @@ tests/
   to find what needs tuning. T060 (polish) is the dedicated retune
   pass.
 
-## Next 3 actions (demo-sprint final)
+## Next 3 actions (post-merge)
 
-1. **Smoke-test the demo build** on desktop (dev server at
-   <http://localhost:5175> or the SWA URL) AND on iOS Safari
-   (use the SWA URL — LAN dev server isn't reachable from phone
-   on different network segments). Verify: menu → controls hint
-   appears + auto-dismisses + tap-to-start works on touch → jump
-   beep plays → carrot collect particles + chime → powerup gold
-   flash + arp → mute toggle button bottom-right toggles audio.
-   File any surprises as new commits or jot them in the journal.
-2. **Walk [playtests/us3.md](../../specs/001-vertical-slice/playtests/us3.md)
-   and sign the bottom line** — the US3 minimal sign-off. Same
-   smoke-test as item 1 covers most of it; the playtest has the
-   specific scenarios to assert against.
-3. **Merge `001-vertical-slice` → `main`** in a single PR review.
-   In the same PR (or immediately after the merge), update the
-   SWA workflow file so the production branch trigger is `main`
-   (currently `001-vertical-slice`) and run
-   `az staticwebapp update --name carrot-code --resource-group rg-carrot-code --branch main`.
-   Tag the merge commit `v0.1-demo` so the cohort build is pinned
-   to a known-good ref even if Friday-afternoon polish breaks
-   something.
+1. **Smoke-test the demo build at the live URL** on iOS Safari + desktop.
+   Verify the title screen shows the new merge SHA `2a195a5` (or higher
+   if hot-fixes land). Walk: title → play → controls hint → narrator →
+   collect/jump through section 1 + 2 → carrot-throw on section 3 →
+   final climb → die deliberately + Play-again → complete + Play-again.
+   Any visible regressions become hot-fix branches off main, fast-PR-
+   merge, retag v0.1-demo if needed.
+2. **Sign off T051 in [playtests/us3.md](../../specs/001-vertical-slice/playtests/us3.md).**
+   The narrator + dismiss + replay-reset behavior shipped in the demo;
+   maintainer walks the checklist and adds the sign-off line at the
+   bottom. Can happen in any order vs item 1; the playtest doesn't gate
+   anything.
+3. **Demo Saturday.** Take notes during play + via conversation. After
+   the demo, the polish-phase backlog opens (T060: tune config values
+   per cohort feedback; T064a: cross-browser matrix; CC0 audio swap;
+   adaptive narrator prototype). Pick winners based on what the cohort
+   actually surfaced.
 
-Natural stopping points: after smoke-test (demo confidence), after
-T051 sign-off (US3 minimal complete on paper), after the v0.1-demo
-tag is on `main` (cohort build is locked).
+Natural stopping points: after smoke-test confirmation, after T051
+sign-off, after the demo itself (post-demo backlog opens).
 
 ## Stay-the-course sprint addendum (visual tone + identity, low drift)
 
