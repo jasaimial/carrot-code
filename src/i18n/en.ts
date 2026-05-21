@@ -51,6 +51,13 @@ export const EN = {
   "hint.controlsKeyboard": "← → to move    •    Space / W / ↑ to jump",
   "hint.controlsTouch": "Use the on-screen buttons to move and jump",
 
+  // --- Audio mute toggle (UIScene corner button) ------------------------
+  // Glyphs render cross-platform; emoji fallback fonts on iOS render
+  // these as full-color, monospace on desktop renders them as outline.
+  // Both readable for the toggle purpose.
+  "audio.unmuted": "🔊",
+  "audio.muted": "🔇",
+
   // --- Boot loading screen (T032). Visible briefly while assets preload. ---
   "boot.loading": "Loading…",
 

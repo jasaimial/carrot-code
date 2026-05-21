@@ -53,6 +53,7 @@ import { loadLevel, LevelLoadError } from "../services/level-loader.js";
 import { type SaveService } from "../services/save-service.js";
 import { playCarrotBurst, playPowerupPickupFx } from "../systems/feedback-fx.js";
 import { evaluateNarratorTrigger } from "../systems/narrator-trigger.js";
+import { REGISTRY_KEY_SOUND_FX, type SoundFx } from "../systems/sound-fx.js";
 import { installBackdrop } from "../systems/visual-backdrop.js";
 import type { LevelData } from "../types/level.js";
 
@@ -382,6 +383,7 @@ export class LevelScene extends Phaser.Scene {
             const burstY = sprite.y;
             onCollect();
             playCarrotBurst(this, burstX, burstY);
+            this.requireSoundFx()?.playCarrotCollect();
             this.carrotsCollected += 1;
             this.registry.set(REGISTRY_KEY_CARROT_COUNT, this.carrotsCollected);
           });
@@ -395,6 +397,7 @@ export class LevelScene extends Phaser.Scene {
             // Pickup-moment flash on the hero (discrete spark vs the
             // continuous gold tint that follows while powered).
             playPowerupPickupFx(this, hero);
+            this.requireSoundFx()?.playPowerup();
             // Publish the freshly-applied window to the HUD. The
             // remainingMs read in update() refreshes the counter
             // each frame; this seeds the initial value.
@@ -484,6 +487,15 @@ export class LevelScene extends Phaser.Scene {
       throw new Error("LevelScene: AssetService not found on registry; BootScene must run first.");
     }
     return svc;
+  }
+
+  /**
+   * Retrieve the shared SoundFx. Returns undefined when missing (test
+   * harness, very old browser without WebAudio). All callers use
+   * optional-chaining so audio is non-blocking by design.
+   */
+  private requireSoundFx(): SoundFx | undefined {
+    return this.registry.get(REGISTRY_KEY_SOUND_FX) as SoundFx | undefined;
   }
 
   /**

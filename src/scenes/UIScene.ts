@@ -38,6 +38,7 @@ import Phaser from "phaser";
 import { PALETTE_HEX } from "../config/palette.js";
 import { UI } from "../config/ui.js";
 import { t } from "../i18n/index.js";
+import { REGISTRY_KEY_SOUND_FX, type SoundFx } from "../systems/sound-fx.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
 import {
@@ -77,6 +78,8 @@ export class UIScene extends Phaser.Scene {
   private controlsHintTimer: Phaser.Time.TimerEvent | undefined;
   /** True once the controls hint has been dismissed (any-cause); blocks re-trigger. */
   private controlsHintDismissed = false;
+  /** Text object for the audio mute toggle button. */
+  private muteToggleText: Phaser.GameObjects.Text | undefined;
 
   // Bound registry-event handlers. Stored so we can `off` them in
   // shutdown() — otherwise stale listeners survive Play-again and
@@ -414,6 +417,7 @@ export class UIScene extends Phaser.Scene {
     this.buildHearts(this.readLives());
     this.buildCarrotCounter(this.readCarrots());
     this.buildPowerTimer();
+    this.buildMuteToggle();
     this.setupNarratorSubscription();
 
     // Re-render hearts when LevelScene publishes a new life count.
@@ -518,6 +522,52 @@ export class UIScene extends Phaser.Scene {
     const seconds = (remainingMs / 1000).toFixed(1);
     this.powerTimerText.setText(`⚡ ${seconds}s`);
     this.powerTimerText.setVisible(true);
+  }
+
+  /**
+   * Build the audio mute toggle button. Sits bottom-right with a low
+   * background opacity so it doesn't fight HUD elements; small enough
+   * to ignore but reachable on both desktop and touch. Persists
+   * across Play-again because the SoundFx instance lives on the
+   * (game-wide) registry, not the scene.
+   */
+  private buildMuteToggle(): void {
+    const soundFx = this.requireSoundFx();
+    if (soundFx === undefined) {
+      // No audio service registered (test harness, very old browser).
+      // Skip the button to avoid a useless visible element.
+      return;
+    }
+    const x = this.scale.width - 28;
+    const y = this.scale.height - 28;
+    const labelKey = soundFx.isMuted() ? "audio.muted" : "audio.unmuted";
+    this.muteToggleText = this.add
+      .text(x, y, t(labelKey), {
+        fontFamily: "monospace",
+        fontSize: "22px",
+        color: PALETTE_HEX.textCream,
+        backgroundColor: PALETTE_HEX.bgDialog,
+        padding: { x: 6, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1100)
+      .setAlpha(0.7)
+      .setInteractive({ useHandCursor: true });
+
+    this.muteToggleText.on(Phaser.Input.Events.POINTER_DOWN, () => {
+      const muted = soundFx.toggleMuted();
+      this.muteToggleText?.setText(t(muted ? "audio.muted" : "audio.unmuted"));
+    });
+  }
+
+  /**
+   * Retrieve the shared SoundFx. Returns undefined when missing (test
+   * harness, very old browser without WebAudio). Mute toggle bails
+   * silently if the service isn't present.
+   */
+  private requireSoundFx(): SoundFx | undefined {
+    return this.registry.get(REGISTRY_KEY_SOUND_FX) as SoundFx | undefined;
   }
 
   /** Read current life count from registry; fallback for first frame. */

@@ -32,6 +32,7 @@ import { HERO } from "../config/hero.js";
 import { POWERUPS } from "../config/powerups.js";
 import { CoyoteTimer } from "../systems/coyote-time.js";
 import { JumpBuffer } from "../systems/jump-buffer.js";
+import { REGISTRY_KEY_SOUND_FX, type SoundFx } from "../systems/sound-fx.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
 import { HeroLivesState, type HitOutcome } from "./hero-lives.js";
@@ -78,6 +79,12 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
    * Either way the read is unconditional below.
    */
   private readonly touch: TouchInputStore | undefined;
+  /**
+   * Optional shared SoundFx. Present at boot when game.ts has seeded
+   * the registry. Undefined only in tests / headless boot. Calls are
+   * null-safe via the optional-chaining at the call site.
+   */
+  private readonly soundFx: SoundFx | undefined;
   private readonly keys: {
     readonly left: Phaser.Input.Keyboard.Key;
     readonly right: Phaser.Input.Keyboard.Key;
@@ -106,6 +113,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     this.powerup = new HeroPowerupState(POWERUPS.invincibilityStackMode);
     // Picked up from the scene registry (seeded by game.ts at postBoot).
     this.touch = scene.registry.get(REGISTRY_KEY_TOUCH_INPUT) as TouchInputStore | undefined;
+    this.soundFx = scene.registry.get(REGISTRY_KEY_SOUND_FX) as SoundFx | undefined;
 
     // Register on the scene + enable Arcade physics so the body exists
     // before the first collider call from the caller.
@@ -192,6 +200,7 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     // --- Apply jump ------------------------------------------------------
     if (action.jumpFired) {
       body.setVelocityY(HERO.jumpVelocityPxPerSec);
+      this.soundFx?.playJump();
     }
     if (action.applyJumpReleaseCap) {
       body.setVelocityY(HERO.jumpReleaseVelocityCapPxPerSec);

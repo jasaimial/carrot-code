@@ -32,6 +32,7 @@ import { MenuScene } from "./scenes/MenuScene";
 import { UIScene } from "./scenes/UIScene";
 import { KennyAssetService } from "./services/asset-service.js";
 import { LocalStorageSaveService } from "./services/save-service.js";
+import { SoundFx, REGISTRY_KEY_SOUND_FX } from "./systems/sound-fx.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "./systems/touch-input-store.js";
 
 /** Registry key the shared SaveService is mounted under. */
@@ -108,6 +109,10 @@ export function startGame(parent: HTMLElement): Phaser.Game {
         game.registry.set("devMode", import.meta.env.DEV);
         game.registry.set(REGISTRY_KEY_ASSET_SERVICE, new KennyAssetService());
         game.registry.set(REGISTRY_KEY_TOUCH_INPUT, new TouchInputStore());
+        // Audio: WebAudio-synthesized SFX. AudioContext is created
+        // lazily on the first sound (iOS Safari needs a user gesture
+        // first, which it gets on the MenuScene Play button).
+        game.registry.set(REGISTRY_KEY_SOUND_FX, new SoundFx());
         // SaveService is browser-only (needs window.localStorage). Guard
         // here so a future test-host that constructs the Phaser game
         // without localStorage doesn't crash at boot.
