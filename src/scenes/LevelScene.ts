@@ -51,7 +51,9 @@ import {
 } from "../services/asset-service.js";
 import { loadLevel, LevelLoadError } from "../services/level-loader.js";
 import { type SaveService } from "../services/save-service.js";
+import { playCarrotBurst, playPowerupPickupFx } from "../systems/feedback-fx.js";
 import { evaluateNarratorTrigger } from "../systems/narrator-trigger.js";
+import { installBackdrop } from "../systems/visual-backdrop.js";
 import type { LevelData } from "../types/level.js";
 
 import { REGISTRY_KEY_ASSET_SERVICE } from "./BootScene.js";
@@ -122,6 +124,9 @@ export class LevelScene extends Phaser.Scene {
     const level = this.parseLevelData(tiledJson);
     this.level = level;
     const map = this.buildTilemap();
+    // Install parallax backdrop BEFORE rendering tile layers so its
+    // negative-depth Graphics objects don't have to fight for z-order.
+    installBackdrop(this, map.widthInPixels, map.heightInPixels);
     const terrainLayer = this.renderTileLayersWithCollision(map);
     this.spawnHero(level, terrainLayer);
     this.spawnTimeMs = this.time.now;
@@ -370,7 +375,13 @@ export class LevelScene extends Phaser.Scene {
         case "carrot": {
           const { sprite, onCollect } = createPickup(this, entity.x, entity.y, entity);
           this.physics.add.overlap(hero, sprite, () => {
+            // Capture pickup position BEFORE onCollect() destroys the
+            // sprite — the burst needs world coords + the sprite is gone
+            // immediately after.
+            const burstX = sprite.x;
+            const burstY = sprite.y;
             onCollect();
+            playCarrotBurst(this, burstX, burstY);
             this.carrotsCollected += 1;
             this.registry.set(REGISTRY_KEY_CARROT_COUNT, this.carrotsCollected);
           });
@@ -381,6 +392,9 @@ export class LevelScene extends Phaser.Scene {
           this.physics.add.overlap(hero, sprite, () => {
             onCollect();
             hero.applyPowerup(entity.durationMs);
+            // Pickup-moment flash on the hero (discrete spark vs the
+            // continuous gold tint that follows while powered).
+            playPowerupPickupFx(this, hero);
             // Publish the freshly-applied window to the HUD. The
             // remainingMs read in update() refreshes the counter
             // each frame; this seeds the initial value.

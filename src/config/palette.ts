@@ -40,6 +40,10 @@
 export const PALETTE_HEX = {
   /** Forest-green primary surface (game background, manifest theme). */
   bgForest: "#2d6a3e",
+  /** Sky gradient top — soft cyan. Used by the parallax backdrop. */
+  bgSkyTop: "#92c0d4",
+  /** Sky gradient horizon — sage teal that meets the forest. Backdrop only. */
+  bgSkyHorizon: "#5f8a7c",
   /** Warm cream — primary foreground text, manifest background fallback. */
   textCream: "#fdf6e3",
   /** Carrot orange — collectibles, accent flourishes. */
@@ -65,6 +69,8 @@ export const PALETTE_HEX = {
  */
 export const PALETTE = {
   bgForest: hexToNumber(PALETTE_HEX.bgForest),
+  bgSkyTop: hexToNumber(PALETTE_HEX.bgSkyTop),
+  bgSkyHorizon: hexToNumber(PALETTE_HEX.bgSkyHorizon),
   textCream: hexToNumber(PALETTE_HEX.textCream),
   uiCarrot: hexToNumber(PALETTE_HEX.uiCarrot),
   uiHeart: hexToNumber(PALETTE_HEX.uiHeart),
