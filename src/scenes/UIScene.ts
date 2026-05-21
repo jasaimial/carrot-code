@@ -84,22 +84,47 @@ export class UIScene extends Phaser.Scene {
   // Bound registry-event handlers. Stored so we can `off` them in
   // shutdown() — otherwise stale listeners survive Play-again and
   // fire against destroyed game objects (drawImage on null crash).
+  //
+  // Each handler is double-guarded:
+  //   1. `this.scene.isActive()` skips the handler when this UIScene
+  //      instance is between scenes (post-shutdown, pre-create).
+  //      Phaser's scene.stop is queued, not synchronous, so a
+  //      registry write from a sibling scene's init() can fire a
+  //      handler in the window between stop being requested and
+  //      shutdown actually running.
+  //   2. Each GameObject reference is checked with `.active` before
+  //      operating on it. A destroyed-but-not-nulled GameObject has
+  //      `active === false` and a null underlying texture; calling
+  //      `setText` on such an object crashes inside Phaser's
+  //      drawImage path. Reference-cleared on shutdown.
   private readonly onLivesChanged = (_p: unknown, value: unknown): void => {
+    if (!this.scene.isActive()) {
+      return;
+    }
     if (typeof value === "number") {
       this.buildHearts(value);
     }
   };
   private readonly onCarrotsChanged = (_p: unknown, value: unknown): void => {
-    if (typeof value === "number") {
-      this.carrotCountText?.setText(this.formatCarrotCount(value));
+    if (!this.scene.isActive()) {
+      return;
+    }
+    if (typeof value === "number" && this.carrotCountText?.active === true) {
+      this.carrotCountText.setText(this.formatCarrotCount(value));
     }
   };
   private readonly onPowerChanged = (_p: unknown, value: unknown): void => {
+    if (!this.scene.isActive()) {
+      return;
+    }
     if (typeof value === "number") {
       this.updatePowerTimer(value);
     }
   };
   private readonly onNarratorChanged = (_p: unknown, value: unknown): void => {
+    if (!this.scene.isActive()) {
+      return;
+    }
     if (typeof value !== "string") {
       return;
     }
@@ -194,7 +219,18 @@ export class UIScene extends Phaser.Scene {
       Phaser.Data.Events.CHANGE_DATA_KEY + REGISTRY_KEY_NARRATOR_TEXT,
       this.onNarratorChanged,
     );
-    // Clear the store so a returning desktop player after restart
+    // Null every GameObject reference so any handler that did get
+    // through the off() call (e.g. mid-flight emit from a registry
+    // write earlier in the same frame as shutdown) hits the
+    // optional-chain bail-out instead of touching a destroyed object.
+    this.heartsContainer = undefined;
+    this.carrotCountText = undefined;
+    this.powerTimerText = undefined;
+    this.narratorContainer = undefined;
+    this.narratorBodyText = undefined;
+    this.narratorVisible = false;
+    this.muteToggleText = undefined;
+    // Clear the touch store so a returning desktop player after restart
     // doesn't see stale touch flags.
     this.store?.setLeft(false);
     this.store?.setRight(false);

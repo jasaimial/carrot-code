@@ -172,13 +172,7 @@ export class GameOverScene extends Phaser.Scene {
       return;
     }
     this.restarting = true;
-    // Diagnostic log: surfaces in iOS Safari remote-debugger and in
-    // dev-tools when this path executes. If you see this log but no
-    // visible restart, the scene queue is at fault. If you don't see
-    // this log, the tap never reached the handler (hit-zone issue).
-    console.info("[GameOverScene] restartLevel() invoked for", this.levelId);
     this.time.delayedCall(0, () => {
-      console.info("[GameOverScene] scene.start('LevelScene') firing");
       this.scene.start("LevelScene", { levelId: this.levelId });
     });
   }
