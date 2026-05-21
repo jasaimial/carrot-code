@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { execSync } from "node:child_process";
 
 // -----------------------------------------------------------------------------
 // carrot-code — Vite config
@@ -16,10 +17,38 @@ import { VitePWA } from "vite-plugin-pwa";
 //   - Final icon list once T052 produces the icon set
 // -----------------------------------------------------------------------------
 
+/**
+ * Read the current git short SHA at build time. Surfaced to the runtime
+ * via `__BUILD_SHA__` so the title-screen version badge can prove which
+ * commit the user is actually loading (catches stale-SW caching).
+ *
+ * Falls back to "dev" when git isn't reachable (CI sometimes is, the
+ * fallback keeps the build green either way).
+ * @returns A 7-character git short SHA, or `"dev"` if git isn't reachable.
+ */
+function readGitShortSha(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+  } catch {
+    return "dev";
+  }
+}
+
+const BUILD_SHA = readGitShortSha();
+const BUILD_TIMESTAMP = new Date().toISOString().slice(0, 16).replace("T", " ");
+
 export default defineConfig({
   // Vite serves files in /public at the root and resolves `import.meta.env.DEV`
   // for the dev-only FPS overlay called out in Constitution Principle X.
   base: "/",
+
+  // Surface build metadata to the runtime so the title screen can
+  // display it. Both values are inlined as JSON-stringified literals
+  // at build time (Vite's standard `define` behavior).
+  define: {
+    __BUILD_SHA__: JSON.stringify(BUILD_SHA),
+    __BUILD_TIMESTAMP__: JSON.stringify(BUILD_TIMESTAMP),
+  },
 
   build: {
     target: "es2022",

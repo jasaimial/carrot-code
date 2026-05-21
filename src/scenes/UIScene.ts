@@ -731,11 +731,20 @@ export class UIScene extends Phaser.Scene {
       });
     }
 
-    // Dismiss on first pointer/touch input anywhere. Note this also
-    // fires for taps on the touch buttons (their pointerdown bubbles
-    // to the scene input), which is exactly what we want.
-    this.input.once(Phaser.Input.Events.POINTER_DOWN, () => {
-      this.dismissControlsHint();
+    // Dismiss on first pointer/touch input anywhere AFTER a 600ms
+    // cooldown. Without the cooldown, the same touch that crosses
+    // from MenuScene into LevelScene fires POINTER_DOWN here and
+    // dismisses the hint before the player can read it. The 600ms
+    // gives the transition + frame time for the player to register
+    // they're now in the level. Keyboard / touch-button taps after
+    // the cooldown dismiss as intended.
+    this.time.delayedCall(600, () => {
+      if (this.controlsHintDismissed) {
+        return;
+      }
+      this.input.once(Phaser.Input.Events.POINTER_DOWN, () => {
+        this.dismissControlsHint();
+      });
     });
   }
 

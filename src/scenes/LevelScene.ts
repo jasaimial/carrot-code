@@ -446,7 +446,15 @@ export class LevelScene extends Phaser.Scene {
     if (outcome === "complete") {
       this.persistProgress();
     }
-    this.scene.pause();
+    // Stop UIScene explicitly (it runs in parallel; scene.start on
+    // GameOverScene only stops the calling scene). Then transition.
+    //
+    // We deliberately do NOT call scene.pause() before this. Earlier
+    // versions did, but pause()+start() left LevelScene in a state
+    // where the SHUTDOWN event handlers (registry-listener cleanup,
+    // etc.) didn't reliably fire, and the next Play-again-after-death
+    // restart ended up with stale registry subscriptions. scene.start
+    // on its own properly shuts down the calling scene.
     this.scene.stop("UIScene");
     this.scene.start("GameOverScene", { outcome, levelId: this.levelId });
   }

@@ -118,6 +118,20 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0.7);
 
+    // Build SHA + timestamp pinned bottom-right of the screen. Lets us
+    // (and any cohort attendee) verify which build the SW is actually
+    // serving — invaluable when the page looks "wrong" after a deploy
+    // and the question is whether the browser cache served the new
+    // build or an old one.
+    this.add
+      .text(width - 8, height - 8, `build ${__BUILD_SHA__} · ${__BUILD_TIMESTAMP__} UTC`, {
+        fontFamily: "monospace",
+        fontSize: "10px",
+        color: PALETTE_HEX.textCream,
+      })
+      .setOrigin(1, 1)
+      .setAlpha(0.45);
+
     // Play button — same pattern as GameOverScene (text + larger
     // invisible hit-zone behind it).
     const playLabel = this.add
@@ -175,9 +189,22 @@ export class MenuScene extends Phaser.Scene {
     // attendees who don't aim precisely at the Play button. Only on
     // touch devices; on desktop the Play button + keyboard cover it
     // and a global click-anywhere would feel imprecise.
+    //
+    // 400ms cooldown matters: when the page first loads, the user often
+    // already has a finger on the screen (from swiping to this tab,
+    // dismissing the URL bar, etc). Without a cooldown the very first
+    // POINTER_DOWN fires startLevel() before the menu visibly draws,
+    // and the cohort sees a flash of menu and then "the game" with no
+    // idea there was a title. The cooldown lets the menu render +
+    // settle before tap-anywhere arms.
     if (isTouchDevice()) {
-      this.input.once(Phaser.Input.Events.POINTER_DOWN, () => {
-        this.startLevel();
+      this.time.delayedCall(400, () => {
+        if (this.started) {
+          return;
+        }
+        this.input.once(Phaser.Input.Events.POINTER_DOWN, () => {
+          this.startLevel();
+        });
       });
     }
   }

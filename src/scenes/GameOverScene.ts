@@ -40,6 +40,8 @@ interface GameOverSceneData {
 export class GameOverScene extends Phaser.Scene {
   private outcome: GameOverOutcome = "complete";
   private levelId: LevelId = "level-01";
+  /** Idempotent guard so a double-input doesn't double-start the level. */
+  private restarting = false;
 
   public constructor() {
     super({ key: "GameOverScene" });
@@ -49,6 +51,7 @@ export class GameOverScene extends Phaser.Scene {
   public init(data: GameOverSceneData): void {
     this.outcome = data.outcome;
     this.levelId = data.levelId;
+    this.restarting = false;
   }
 
   /** Phaser hook — render headline + Play-again button. */
@@ -127,18 +130,25 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   /**
-   * Restart by deferring the scene transition by a tick so the current
-   * click event finishes propagating before scenes start/stop. Going
-   * through BootScene proved fragile (empty-loader hang), so we
-   * transition straight to a fresh LevelScene; assets are already
-   * cached from the first boot.
+   * Restart by stopping UIScene + LevelScene defensively (both may
+   * already be stopped from endLevel's earlier teardown, but stop()
+   * on an already-stopped scene is a safe no-op) and then starting
+   * a fresh LevelScene with the same levelId. Assets are already in
+   * Phaser's cache from the first boot, so the new LevelScene mounts
+   * immediately without going back through BootScene.
+   *
+   * scene.start on the LevelScene key from this scene also stops
+   * GameOverScene (Phaser's standard scene.start semantics).
    */
   private restartLevel(): void {
-    this.time.delayedCall(0, () => {
-      this.scene.stop("UIScene");
-      this.scene.stop("LevelScene");
-      this.scene.start("LevelScene", { levelId: this.levelId });
-    });
+    // Idempotent guard: an ENTER + tap could otherwise double-fire.
+    if (this.restarting) {
+      return;
+    }
+    this.restarting = true;
+    this.scene.stop("UIScene");
+    this.scene.stop("LevelScene");
+    this.scene.start("LevelScene", { levelId: this.levelId });
   }
 
   /** CSS hex string -> Phaser numeric color (0xRRGGBB). */
