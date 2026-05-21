@@ -111,6 +111,10 @@ export class GameOverScene extends Phaser.Scene {
       playAgain.setColor(PALETTE_HEX.uiCarrot);
     });
     hitZone.on(Phaser.Input.Events.POINTER_DOWN, () => {
+      // Immediate visual feedback so the user sees their tap was
+      // received, even before the scene transition runs.
+      playAgain.setColor(PALETTE_HEX.textCream);
+      playAgain.setText(`▶  ${t("outcome.restarting")}`);
       this.restartLevel();
     });
 
@@ -121,34 +125,62 @@ export class GameOverScene extends Phaser.Scene {
     const kb = this.input.keyboard;
     if (kb !== null) {
       kb.once("keydown-ENTER", () => {
+        playAgain.setText(`▶  ${t("outcome.restarting")}`);
         this.restartLevel();
       });
       kb.once("keydown-SPACE", () => {
+        playAgain.setText(`▶  ${t("outcome.restarting")}`);
         this.restartLevel();
       });
     }
   }
 
   /**
-   * Restart by stopping UIScene + LevelScene defensively (both may
-   * already be stopped from endLevel's earlier teardown, but stop()
-   * on an already-stopped scene is a safe no-op) and then starting
-   * a fresh LevelScene with the same levelId. Assets are already in
-   * Phaser's cache from the first boot, so the new LevelScene mounts
-   * immediately without going back through BootScene.
+   * Restart the level by handing off to LevelScene with the same
+   * levelId. Two Phaser footguns avoided here:
    *
-   * scene.start on the LevelScene key from this scene also stops
-   * GameOverScene (Phaser's standard scene.start semantics).
+   *   1. We do NOT call `scene.stop("LevelScene")` or
+   *      `scene.stop("UIScene")` before `scene.start("LevelScene")`.
+   *      LevelScene + UIScene are both already in STOPPED state at
+   *      this point (LevelScene's endLevel transitioned to
+   *      GameOverScene, which Phaser implements by shutting down the
+   *      calling scene). Calling stop() on an already-STOPPED scene
+   *      in the SAME frame as a subsequent start() can leave Phaser's
+   *      scene state queue in an inconsistent state where PENDING_STOP
+   *      wins the race and start() silently becomes a no-op - the
+   *      symptom being a Play-again button that visibly responds
+   *      (color flips, "Restarting…" text appears) but no actual
+   *      level restart. Confirmed broken on Phaser 4.1 iOS Safari
+   *      2026-05-21.
+   *
+   *   2. We DEFER the start by one tick via `time.delayedCall(0)`.
+   *      Calling scene.start synchronously inside a pointerdown
+   *      handler runs while Phaser is mid-input-dispatch; the start
+   *      gets queued but the queued ops from the current frame
+   *      (input-dispatch finalize, etc.) can race with it.
+   *      delayedCall(0) yields to the next tick where Phaser's
+   *      scene queue is empty and the start runs clean.
+   *
+   * `scene.start("LevelScene", data)` from inside GameOverScene shuts
+   * down GameOverScene (Phaser standard behavior) and runs LevelScene
+   * with its init() + create() lifecycle. LevelScene.create() then
+   * launches UIScene back in parallel as usual.
    */
   private restartLevel(): void {
-    // Idempotent guard: an ENTER + tap could otherwise double-fire.
+    // Idempotent guard so a fast Enter + tap can't double-fire.
     if (this.restarting) {
       return;
     }
     this.restarting = true;
-    this.scene.stop("UIScene");
-    this.scene.stop("LevelScene");
-    this.scene.start("LevelScene", { levelId: this.levelId });
+    // Diagnostic log: surfaces in iOS Safari remote-debugger and in
+    // dev-tools when this path executes. If you see this log but no
+    // visible restart, the scene queue is at fault. If you don't see
+    // this log, the tap never reached the handler (hit-zone issue).
+    console.info("[GameOverScene] restartLevel() invoked for", this.levelId);
+    this.time.delayedCall(0, () => {
+      console.info("[GameOverScene] scene.start('LevelScene') firing");
+      this.scene.start("LevelScene", { levelId: this.levelId });
+    });
   }
 
   /** CSS hex string -> Phaser numeric color (0xRRGGBB). */

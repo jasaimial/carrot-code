@@ -79,6 +79,7 @@ export const EN = {
   "outcome.levelComplete": "Level complete!",
   "outcome.gameOver": "Game over",
   "outcome.playAgain": "Play again",
+  "outcome.restarting": "Restarting…",
 
   // --- Narrator dialog framing (T049). The BEAT TEXT itself lives in
   //     src/data/narrator-beats.ts (T047) and is NOT here, because the
