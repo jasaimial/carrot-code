@@ -17,7 +17,9 @@
     "node": ">=20"
   },
   "scripts": {
+    "predev": "node scripts/check-dev-port.mjs",
     "dev": "vite",
+    "kill-dev": "node scripts/kill-dev-zombies.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
