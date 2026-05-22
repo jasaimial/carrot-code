@@ -22,6 +22,9 @@
 import { describe, expect, it } from "vitest";
 
 import { LevelLoadError, loadLevel } from "../../src/services/level-loader.js";
+import { LEVEL_IDS } from "../../src/data/levels/index.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 // -----------------------------------------------------------------------------
 // Tiled fixture helpers. We never load a real .tmj file from disk — the
@@ -285,5 +288,39 @@ describe("loadLevel", () => {
     expect(() => loadLevel(tiledMap(objects), "level-01", "Forest 1", 250_000)).toThrow(
       LevelLoadError,
     );
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Data-driven sweep over every registered level (Layer 1).
+//
+// Convention-bound: each level's .tmj lives at src/data/levels/<id>.tmj.
+// If that convention is ever broken, this loader will fail to find the file,
+// which is itself the correct failure mode (a level should be loadable from
+// a predictable on-disk path).
+//
+// The synthetic fixtures above cover loader invariants in isolation; this
+// sweep ensures the real shipped level data ALSO satisfies them, so adding
+// level-02 is caught here without writing a bespoke per-level test.
+// -----------------------------------------------------------------------------
+
+describe.each(LEVEL_IDS)("real level fixture: %s", (levelId) => {
+  const tmjPath = resolve(__dirname, "..", "..", "src", "data", "levels", `${levelId}.tmj`);
+  const tiledJson = JSON.parse(readFileSync(tmjPath, "utf-8")) as object;
+
+  it("loads without throwing", () => {
+    expect(() => loadLevel(tiledJson, levelId, `test:${levelId}`, 2_000_000)).not.toThrow();
+  });
+
+  it("produces a frozen LevelData with the expected id", () => {
+    const level = loadLevel(tiledJson, levelId, `test:${levelId}`, 2_000_000);
+    expect(level.id).toBe(levelId);
+    expect(Object.isFrozen(level)).toBe(true);
+  });
+
+  it("declares a spawn point inside the map bounds", () => {
+    const level = loadLevel(tiledJson, levelId, `test:${levelId}`, 2_000_000);
+    expect(level.spawn.x).toBeGreaterThanOrEqual(0);
+    expect(level.spawn.y).toBeGreaterThanOrEqual(0);
   });
 });
