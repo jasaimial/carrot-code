@@ -47,6 +47,12 @@ export const EN = {
   "menu.startHintDesktop": "Press Enter or Space — or click Play",
   "menu.startHintTouch": "Tap anywhere to start",
 
+  // Install affordance (T056). Visible only when the platform fired a
+  // capturable beforeinstallprompt AND the page is not already
+  // standalone. Hidden on iOS (Safari never fires the event) and on
+  // already-installed PWAs.
+  "menu.installButton": "📥 Install as app",
+
   // --- First-time controls hint (LevelScene mount) ----------------------
   "hint.controlsKeyboard": "← → move    •    Space jump    •    F throw carrot",
   "hint.controlsTouch": "Move + jump with on-screen buttons. THROW a carrot to clear enemies.",

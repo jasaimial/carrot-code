@@ -69,4 +69,4 @@ Cross-reference [Story 3 acceptance scenarios](../spec.md#user-story-3--hear-the
 
 ## Sign-off
 
-- [ ] US3 minimal sign-off (narrator beat + dismiss + replay reset): ____ (YYYY-MM-DD, @<git-sha>)
+- [x] US3 minimal sign-off (narrator beat + dismiss + replay reset): tested by maintainer 2026-05-22 on desktop + mobile against `main` HEAD `cb4e3cc`. All checklist items above pass.
