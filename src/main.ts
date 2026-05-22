@@ -12,6 +12,12 @@
  */
 
 import { startGame } from "./game";
+import { initInstallPromptCapture } from "./pwa";
+
+// PWA install-prompt capture. MUST run before Phaser boots — Chromium
+// fires `beforeinstallprompt` once on load, and if no listener is
+// attached when it fires the event is lost. See src/pwa.ts.
+initInstallPromptCapture();
 
 // Phaser needs a real DOM element to mount into. If we ever ship a different
 // host page that doesn't include #game, fail loudly here rather than letting

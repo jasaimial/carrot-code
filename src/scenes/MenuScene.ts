@@ -33,6 +33,7 @@ import Phaser from "phaser";
 import { PALETTE_HEX } from "../config/palette.js";
 import { type LevelId } from "../data/levels/index.js";
 import { t } from "../i18n/index.js";
+import { canInstall, promptInstall } from "../pwa.js";
 
 /** What MenuScene expects in its `init(data)` call. */
 interface MenuSceneData {
@@ -53,6 +54,13 @@ export class MenuScene extends Phaser.Scene {
   private levelId: LevelId = DEFAULT_LEVEL_ID;
   /** True once Play has fired; prevents double-start from chained inputs. */
   private started = false;
+  /**
+   * Optional install affordance (T056). Created hidden; the per-frame
+   * update() shows it when `canInstall()` flips true and hides it after
+   * the user accepts the prompt. Null when never created (e.g. test
+   * scenes that skip `create()`).
+   */
+  private installLabel: Phaser.GameObjects.Text | null = null;
 
   public constructor() {
     super({ key: "MenuScene" });
@@ -172,6 +180,38 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0.7);
 
+    // Install affordance (T056). Created always but starts invisible;
+    // update() shows it the moment canInstall() flips true and hides it
+    // after install. Subtle styling (smaller than start hint, dimmer
+    // than the title block) so it never competes with Play. Skipped
+    // entirely on iOS / already-standalone where canInstall() will
+    // never return true; the per-frame check is the gate.
+    const installLabel = this.add
+      .text(width / 2, height / 2 + 152, t("menu.installButton"), {
+        fontFamily: "monospace",
+        fontSize: "13px",
+        color: PALETTE_HEX.textCream,
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setAlpha(0.5)
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    installLabel.on(Phaser.Input.Events.POINTER_OVER, () => {
+      installLabel.setAlpha(1);
+    });
+    installLabel.on(Phaser.Input.Events.POINTER_OUT, () => {
+      installLabel.setAlpha(0.5);
+    });
+    installLabel.on(Phaser.Input.Events.POINTER_DOWN, () => {
+      // Fire and forget — the user's choice resolves async and we don't
+      // need to do anything with it. update() will re-poll canInstall()
+      // next frame and hide the label whether they accepted or dismissed
+      // (the captured event is consumed either way per src/pwa.ts).
+      void promptInstall();
+    });
+    this.installLabel = installLabel;
+
     // Keyboard fallback: Enter or Space starts the level. Use the
     // string event-name form ("keydown-ENTER") because the numeric
     // KeyCode form silently never fires (documented in repo memory).
@@ -219,6 +259,25 @@ export class MenuScene extends Phaser.Scene {
     }
     this.started = true;
     this.scene.start("LevelScene", { levelId: this.levelId });
+  }
+
+  /**
+   * Phaser hook — runs every frame while the scene is active. Used
+   * only to show / hide the install affordance based on the current
+   * `canInstall()` value. The platform may fire `beforeinstallprompt`
+   * AFTER `create()` has run (notably the very first page load), so a
+   * one-shot check at create-time would miss it; per-frame polling is
+   * the simplest reliable answer and the check itself is two reads of
+   * module-scope state.
+   */
+  public override update(): void {
+    if (this.installLabel === null) {
+      return;
+    }
+    const shouldShow = canInstall();
+    if (shouldShow !== this.installLabel.visible) {
+      this.installLabel.setVisible(shouldShow);
+    }
   }
 
   /** CSS hex string -> Phaser numeric color (0xRRGGBB). */
