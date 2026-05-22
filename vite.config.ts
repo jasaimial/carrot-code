@@ -121,10 +121,22 @@ export default defineConfig({
         globIgnores: ["**/*.map"],
       },
 
-      // Show the PWA in dev mode so we can sanity-check install prompts
-      // without a production build every time.
+      // PWA in dev mode is intentionally OFF.
+      //
+      // When enabled, vite-plugin-pwa generates a dev-mode service worker
+      // that survives across `npm run dev` restarts and Vite version
+      // upgrades. After any code change that shifts an asset URL, the
+      // stale SW intercepts requests and returns cached responses for
+      // paths that no longer exist - manifest goes Syntax-error, main.ts
+      // returns 500, etc. Diagnosing this looks like "dev server is
+      // broken" but it's the SW lying about asset existence.
+      //
+      // We have the deployed SWA URL for real PWA install / offline /
+      // service-worker testing. Local dev should be plain HTTP only.
+      // Re-enable here ONLY for an explicit PWA-in-dev debugging session,
+      // and unregister the SW from DevTools afterwards.
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: "module",
       },
     }),

@@ -23,13 +23,35 @@ if (mount === null) {
 
 startGame(mount);
 
+// Dev-only self-heal: if a stale service worker from a previous session is
+// active on this origin (very common with vite-plugin-pwa devOptions toggled
+// on/off across sessions), it can intercept requests and return cached
+// responses for asset paths that no longer match the current build - the
+// dev server looks broken (main.ts: 500, manifest: Syntax error) when it's
+// actually the SW lying.
+//
+// In dev only, proactively unregister any SW found on this origin. Cheap,
+// idempotent (no-op when there's nothing to unregister), and only runs
+// when import.meta.env.DEV is true so production builds are unaffected.
+if (import.meta.env.DEV && "serviceWorker" in navigator) {
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const reg of registrations) {
+      void reg.unregister();
+    }
+  });
+}
+
 // PWA service worker registration. The 'virtual:pwa-register' module is
 // provided at build time by vite-plugin-pwa. We register on next tick so the
 // game has a head start on its own asset loading before the SW kicks in.
 //
 // `registerType: 'autoUpdate'` in vite.config.ts means new builds activate
 // automatically; we don't need to prompt the user.
-if ("serviceWorker" in navigator) {
+//
+// Production builds only (import.meta.env.PROD). The virtual:pwa-register
+// module is only emitted when vite-plugin-pwa is active; we keep devOptions
+// disabled to avoid the stale-SW dev crashes documented above.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   // Use dynamic import so non-PWA dev runs that strip the plugin still work.
   void import("virtual:pwa-register").then(({ registerSW }) => {
     registerSW({ immediate: true });
