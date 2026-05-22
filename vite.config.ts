@@ -147,12 +147,23 @@ export default defineConfig({
     // during touch-control playtesting (per spec FR-006).
     host: true,
     port: 5173,
-    strictPort: false,
+    // strictPort: true means "fail loudly if 5173 is already taken"
+    // rather than silently shifting to 5174/5175. Silent port-shift
+    // bit us hard 2026-05-22: a zombie dev server from a previous
+    // session was squatting on 5173 with an old PWA service worker
+    // registered, while `npm run dev` happily moved to 5174. Browser
+    // requests to localhost:5173 hit the zombie + its stale SW; the
+    // "current" dev server was running but unreachable.
+    //
+    // With strictPort:true, "port in use" surfaces as a startup
+    // error and the maintainer kills the zombie BEFORE wasting time
+    // diagnosing a phantom regression.
+    strictPort: true,
   },
 
   preview: {
     host: true,
     port: 4173,
-    strictPort: false,
+    strictPort: true,
   },
 });
