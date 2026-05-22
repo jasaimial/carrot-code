@@ -38,6 +38,7 @@
 
 import Phaser from "phaser";
 
+import { HERO } from "../config/hero.js";
 import { PALETTE_HEX } from "../config/palette.js";
 import { getNarratorBeatsForLevel } from "../data/narrator-beats.js";
 import { type LevelId } from "../data/levels/index.js";
@@ -94,6 +95,8 @@ export class LevelScene extends Phaser.Scene {
   private readonly projectiles: Projectile[] = [];
   /** Cached terrain layer so the per-frame fire-poll can wire colliders. */
   private terrainLayer: Phaser.Tilemaps.TilemapLayer | undefined;
+  /** Cached world height (px) for the fell-off-world death check. */
+  private worldHeight = 0;
   private carrotsCollected = 0;
   private hasEnded = false;
   private spawnTimeMs = 0;
@@ -112,6 +115,7 @@ export class LevelScene extends Phaser.Scene {
     this.enemies.length = 0;
     this.projectiles.length = 0;
     this.terrainLayer = undefined;
+    this.worldHeight = 0;
     this.carrotsCollected = 0;
     this.hasEnded = false;
     this.spawnTimeMs = 0;
@@ -136,6 +140,7 @@ export class LevelScene extends Phaser.Scene {
     installBackdrop(this, map.widthInPixels, map.heightInPixels);
     const terrainLayer = this.renderTileLayersWithCollision(map);
     this.terrainLayer = terrainLayer;
+    this.worldHeight = map.heightInPixels;
     this.spawnHero(level, terrainLayer);
     this.spawnTimeMs = this.time.now;
     this.dispatchEntities(level, terrainLayer);
@@ -175,6 +180,13 @@ export class LevelScene extends Phaser.Scene {
     }
     // Fire-poll: if hero wants to throw + we have ammo, spawn one.
     this.handleFirePoll();
+    // Fell-off-world check: hero falling into a ground gap should be a
+    // death state, not an indefinite drop. World bottom is the bottom
+    // of the tilemap; we add a small margin so the hero is visibly
+    // below the playable area before we trigger gameover (avoids
+    // killing a hero who's just briefly inside a thin one-tile gap
+    // that happens to share their y).
+    this.checkFellOffWorld();
     // Publish per-frame powerup remaining ms so the HUD ring can
     // draw the depleting timer. Round to ints so the registry's
     // change-detection doesn't fire every single frame (only when
@@ -194,7 +206,8 @@ export class LevelScene extends Phaser.Scene {
    * fire + cooldown allows; if yes, decrement ammo (carrot count) and
    * spawn a projectile in the hero's facing direction. If no ammo,
    * play the empty-thunk sound for feedback. Wires the new projectile
-   * against terrain (destroy on impact) + enemies (mutual destroy).
+   * against terrain (lands physically + auto-destroys after a moment)
+   * + enemies (mutual destroy).
    */
   private handleFirePoll(): void {
     const hero = this.hero;
@@ -214,17 +227,31 @@ export class LevelScene extends Phaser.Scene {
     this.carrotsCollected -= 1;
     this.registry.set(REGISTRY_KEY_CARROT_COUNT, this.carrotsCollected);
 
-    // Spawn the projectile slightly in front of the hero so it doesn't
-    // collide with the hero's own body on frame 1.
+    // Spawn the projectile slightly in front of the hero AND lifted
+    // above the hero's vertical center. The lift matters: spawning at
+    // hero.y center would overlap the floor tile under the hero on
+    // frame 1 and instantly trigger the terrain-collide callback. The
+    // small upward offset keeps frame 1 clear of the floor body.
     const dir = hero.getFacingDirection();
-    const spawnX = hero.x + dir * 12;
-    const projectile = new Projectile(this, spawnX, hero.y, dir);
+    const spawnX = hero.x + dir * 14;
+    const spawnY = hero.y + HERO.projectileSpawnYOffsetPx;
+    const projectile = new Projectile(this, spawnX, spawnY, dir);
     this.projectiles.push(projectile);
 
-    // Projectile destroyed by terrain. Use overlap not collider so the
-    // projectile vanishes cleanly rather than bouncing off a wall.
-    this.physics.add.overlap(projectile, this.terrainLayer, () => {
-      projectile.destroy();
+    // Projectile lands on terrain (collider, not overlap, so it can
+    // physically bounce + come to rest). A short delayed-destroy after
+    // first ground contact removes it so the display list doesn't fill
+    // up with abandoned carrots over a long run.
+    this.physics.add.collider(projectile, this.terrainLayer, () => {
+      if (!projectile.active) {
+        return;
+      }
+      // Linger 250ms after the first landing bounce, then vanish.
+      this.time.delayedCall(250, () => {
+        if (projectile.active) {
+          projectile.destroy();
+        }
+      });
     });
 
     // Projectile destroyed by enemy and the enemy with it.
@@ -239,6 +266,29 @@ export class LevelScene extends Phaser.Scene {
     }
 
     soundFx?.playThrow();
+  }
+
+  /**
+   * Death-by-pit check: if the hero has fallen past the bottom of the
+   * world (down through a ground gap) treat it as an instant game-over.
+   *
+   * Without this, the hero just keeps falling forever as the camera
+   * stays clamped to the world bounds \u2014 looks like the game froze and
+   * is one of the most frustrating "is this broken?" bugs for a
+   * first-time player. Per-frame check, cheap, no physics involvement.
+   *
+   * Uses a small margin (1 tile = 18px) below the world bottom so the
+   * hero is visibly off-screen before death triggers — prevents
+   * accidental death from a hero whose sprite center happens to dip
+   * one pixel into a thin gap.
+   */
+  private checkFellOffWorld(): void {
+    if (this.hasEnded || this.hero === undefined) {
+      return;
+    }
+    if (this.hero.y > this.worldHeight + 18) {
+      this.endLevel("gameover");
+    }
   }
 
   /**

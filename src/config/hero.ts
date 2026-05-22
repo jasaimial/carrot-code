@@ -65,9 +65,16 @@ export const HERO = {
    */
   projectileSpeedPxPerSec: 360,
   /**
-   * Max travel distance from spawn before the projectile self-
-   * destructs. ~16 tiles is enough to clear an enemy from a safe
-   * distance without "shoot across the whole map" feel.
+   * Initial upward velocity on the throw — negative is up in Phaser.
+   * Combined with world gravity this gives the carrot a parabolic arc.
+   * Tuned so a throw from ground level peaks roughly one tile-row
+   * above the hero's head and lands ~10 tiles away.
+   */
+  projectileInitialUpwardVelocityPxPerSec: -220,
+  /**
+   * Max horizontal travel distance from spawn before the projectile
+   * self-destructs (backstop in case it never hits terrain or an
+   * enemy). ~16 tiles is plenty for clearing a typical platform.
    */
   projectileMaxDistancePx: 320,
   /**
@@ -75,4 +82,13 @@ export const HERO = {
    * spam emptying the carrot stockpile in one frame.
    */
   projectileCooldownMs: 250,
+  /**
+   * Vertical offset above hero center where the projectile spawns.
+   * Negative is up. Spawning at hero.y center would have the
+   * projectile's body overlap the floor tile under the hero on
+   * frame 1, triggering its terrain-collide callback and destroying
+   * the projectile before the player sees it. Lifting it ~half a
+   * tile up keeps it clear of the floor on frame 1.
+   */
+  projectileSpawnYOffsetPx: -14,
 } as const;
