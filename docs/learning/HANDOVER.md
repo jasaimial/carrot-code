@@ -60,6 +60,43 @@ All five validators should be green on `001-vertical-slice` HEAD. If
 something is red, **stop and fix before any new feature work** —
 Constitution Principle VIII is enforced now.
 
+## Troubleshooting local dev
+
+When `localhost:5173` seems broken, work down this checklist in order
+before diagnosing application bugs. Most "local dev is broken"
+reports across May 2026 turned out to be one of these four.
+
+1. **Check the title-screen build SHA.** Bottom-right corner displays
+   `build <sha> · <UTC timestamp>`. If it doesn't match
+   `git rev-parse --short HEAD`, you're not on the build you think
+   you're on. Skip to the relevant remediation below.
+
+2. **Port held by a zombie?** If `npm run dev` refuses to start with
+   "Port 5173 is already in use", a previous session's node process
+   is squatting on the port. Run `npm run kill-dev` to clear it,
+   then `npm run dev` again. (The `predev` script is what catches
+   this; `strictPort:true` in vite.config.ts is what makes Vite
+   refuse to silently shift to 5174.)
+
+3. **Stale service worker?** Symptoms: `main.ts` returns 500,
+   `manifest.webmanifest` reports syntax errors, console shows
+   `workbox-XXXX.js Router is responding to: /`. A SW from a
+   previous PWA-in-dev session is intercepting requests. Fix:
+   DevTools → Application → Service Workers → Unregister, then
+   Application → Storage → Clear site data, then hard-refresh.
+   (The dev-only self-heal in src/main.ts will also unregister
+   stale SWs on next page load.)
+
+4. **Browser cache?** Hard-refresh (Ctrl+Shift+R) clears most things.
+   If issue persists, DevTools → Application → Storage → Clear site
+   data → reload.
+
+If none of the above and the issue is reproducible, then it's a real
+application bug. **Screenshot the browser console FIRST** before
+asking the agent — `Uncaught TypeError` + filename + line number
+points at the actual problem in seconds, vs minutes-to-hours of
+guessing without it.
+
 ## Where things live
 
 | Looking for... | Path |
