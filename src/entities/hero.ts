@@ -210,7 +210,17 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
       body.setVelocityX(0);
     } else {
       body.setVelocityX(action.moveDirection * HERO.moveSpeedPxPerSec);
-      this.setFlipX(action.moveDirection === -1);
+      // Sprite-flip convention: the Kenney pixel-platformer character
+      // sheet's default frame faces LEFT. To make the sprite face the
+      // direction of travel, we flip when moving RIGHT (which mirrors
+      // the left-facing default into a right-facing pose), and leave
+      // unflipped when moving LEFT (default already faces left).
+      //
+      // Cohort playtest 2026-05-22 caught the old reversed version:
+      // the rabbit's eye appeared to look BACKWARDS relative to travel
+      // direction. If a future asset swap brings in a right-facing
+      // default sprite, invert this boolean.
+      this.setFlipX(action.moveDirection === 1);
       this.facingDirection = action.moveDirection === -1 ? -1 : 1;
     }
 
