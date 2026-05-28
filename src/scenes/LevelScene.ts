@@ -60,7 +60,7 @@ import { installBackdrop } from "../systems/visual-backdrop.js";
 import type { LevelData } from "../types/level.js";
 
 import { REGISTRY_KEY_ASSET_SERVICE } from "./BootScene.js";
-import { REGISTRY_KEY_SAVE_SERVICE } from "../game.js";
+import { REGISTRY_KEY_ACTIVE_PROFILE_KEY, REGISTRY_KEY_SAVE_SERVICE } from "../game.js";
 
 /** Registry-event key the HUD listens to for hero-lives changes. */
 export const REGISTRY_KEY_HERO_LIVES = "heroLives";
@@ -138,10 +138,22 @@ export class LevelScene extends Phaser.Scene {
       return 0;
     }
     try {
-      return saveService.load(LEGACY_PROFILE_KEY).currentCarrots;
+      return saveService.load(this.activeProfileKey()).currentCarrots;
     } catch {
       return 0;
     }
+  }
+
+  /**
+   * Resolve the active profile's storage key. Falls back to the legacy
+   * profile if the registry isn't seeded yet (game.ts postBoot is the
+   * canonical seeder; defensive fallback for tests / edge cases).
+   */
+  private activeProfileKey(): string {
+    const fromRegistry = this.registry.get(REGISTRY_KEY_ACTIVE_PROFILE_KEY) as unknown;
+    return typeof fromRegistry === "string" && fromRegistry.length > 0
+      ? fromRegistry
+      : LEGACY_PROFILE_KEY;
   }
 
   /** Phaser hook — build the tilemap and configure the camera. */
@@ -609,7 +621,9 @@ export class LevelScene extends Phaser.Scene {
    *     agreed v0.3 rules). completedLevelIds NOT updated since the
    *     level wasn't actually finished.
    *
-   * Uses LEGACY_PROFILE_KEY pending the MenuScene profile picker.
+   * Reads the active profile from the registry (game.ts seeds it to
+   * LEGACY_PROFILE_KEY at boot; MenuScene profile picker updates it
+   * when the player switches profiles).
    * Failure is non-blocking and only logged.
    */
   private persistProgress(outcome: "complete" | "gameover"): void {
@@ -619,14 +633,15 @@ export class LevelScene extends Phaser.Scene {
       // disabled). Game-state changes are session-only.
       return;
     }
+    const profileKey = this.activeProfileKey();
     try {
-      const current = saveService.load(LEGACY_PROFILE_KEY);
+      const current = saveService.load(profileKey);
       const newCarrots = outcome === "gameover" ? 0 : this.carrotsCollected;
       const newCompletedLevels =
         outcome === "complete"
           ? [...current.completedLevelIds, this.levelId]
           : current.completedLevelIds;
-      saveService.save(LEGACY_PROFILE_KEY, {
+      saveService.save(profileKey, {
         version: 2,
         profileHandle: current.profileHandle,
         currentCarrots: newCarrots,
