@@ -35,6 +35,15 @@ import { type LevelId } from "../data/levels/index.js";
 import { REGISTRY_KEY_ACTIVE_PROFILE_KEY, REGISTRY_KEY_SAVE_SERVICE } from "../game.js";
 import { t } from "../i18n/index.js";
 import {
+  generatePhrase,
+  hashHandleAndPhrase,
+  joinPhrase,
+  normalizeHandle,
+  normalizePhrase,
+  ProfileValidationError,
+  type RecoveryPhrase,
+} from "../services/profile-service.js";
+import {
   LEGACY_PROFILE_KEY,
   type SaveService,
   SaveQuotaExceededError,
@@ -363,6 +372,9 @@ export class MenuScene extends Phaser.Scene {
         align: "center",
       })
       .setOrigin(0.5, 1);
+
+    // Switch-player affordance just below the Treasure Box panel.
+    this.buildSwitchPlayerButton(panelCx, panelTop + panelH + 18);
   }
 
   /** Build one exchange button (text + invisible hit zone). */
@@ -547,5 +559,187 @@ export class MenuScene extends Phaser.Scene {
     return typeof fromRegistry === "string" && fromRegistry.length > 0
       ? fromRegistry
       : LEGACY_PROFILE_KEY;
+  }
+
+  // ---- Profile picker (Switch player) ------------------------------------
+  //
+  // Uses window.prompt() for all text input. That's intentional for the
+  // first cut: works on every device (iOS Safari surfaces the platform
+  // keyboard) without needing to enable Phaser DOM containers or build
+  // a custom typing UI. Polish pass replaces with proper in-canvas
+  // input fields once usage data confirms the picker is being used.
+  //
+  // The maintainer's "Switch player" tap opens a small radial of choices
+  // (New / Restore / Cancel), each of which then sequences window.prompt()
+  // calls to collect handle + (for New) confirm-phrase or (for Restore)
+  // enter-phrase.
+
+  /** Build the small "Switch player" button under the Treasure Box panel. */
+  private buildSwitchPlayerButton(cx: number, cy: number): void {
+    const label = this.add
+      .text(cx, cy, t("profile.switchButton"), {
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: PALETTE_HEX.textCream,
+        backgroundColor: PALETTE_HEX.bgDialog,
+        padding: { x: 10, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setAlpha(0.85);
+
+    const hit = this.add
+      .rectangle(cx, cy, 180, 24)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    hit.on(Phaser.Input.Events.POINTER_OVER, () => {
+      label.setColor(PALETTE_HEX.uiCarrot);
+    });
+    hit.on(Phaser.Input.Events.POINTER_OUT, () => {
+      label.setColor(PALETTE_HEX.textCream);
+    });
+    hit.on(Phaser.Input.Events.POINTER_DOWN, () => {
+      void this.openProfilePicker();
+    });
+  }
+
+  /**
+   * Open the profile picker overlay. Uses three window.confirm() calls
+   * to drive the choice (New / Restore / Cancel), then sequences
+   * window.prompt() calls to collect inputs. Async because the
+   * underlying ProfileService hash is async.
+   *
+   * UX is deliberately rough; replaceable with proper UI later.
+   */
+  private async openProfilePicker(): Promise<void> {
+    // Use window.confirm to ask New-vs-Restore. confirm() returns true
+    // for OK ("New") and false for Cancel ("Restore"). On Cancel of
+    // the second prompt, the user is back to the menu.
+    const wantsNew = window.confirm(
+      `${t("profile.title")}\n\nOK = New player\nCancel = Restore existing player`,
+    );
+    if (wantsNew) {
+      await this.flowCreateNewProfile();
+    } else {
+      await this.flowRestoreProfile();
+    }
+  }
+
+  /** Create-new flow: prompt for handle, generate phrase, confirm, persist. */
+  private async flowCreateNewProfile(): Promise<void> {
+    const rawHandle = window.prompt(t("profile.newPromptHandle"));
+    if (rawHandle === null) {
+      return; // user cancelled
+    }
+    let handle: string;
+    try {
+      handle = normalizeHandle(rawHandle);
+    } catch (err) {
+      this.showExchangeFeedback(
+        err instanceof ProfileValidationError ? err.message : t("profile.errorInvalidInput"),
+      );
+      return;
+    }
+
+    const phrase = generatePhrase();
+    const phraseText = joinPhrase(phrase);
+
+    // Hash check up-front: if a profile with this handle + a different
+    // phrase already exists, we'd silently overwrite it on save. Avoid
+    // that by ensuring the new profile's hash slot is empty.
+    const hash = await hashHandleAndPhrase(handle, phrase);
+    const saveService = this.requireSaveService();
+    if (saveService === undefined) {
+      this.showExchangeFeedback("Save service unavailable");
+      return;
+    }
+    // The handle+phrase collision space is ~26 bits; functionally
+    // impossible to collide accidentally. But check anyway: if the
+    // slot is non-empty (existing profile), bail and ask to use Restore.
+    const existing = saveService.load(hash);
+    if (existing.lastPlayedAtIso !== new Date(0).toISOString()) {
+      this.showExchangeFeedback(t("profile.errorHandleExists"));
+      return;
+    }
+
+    // Show the phrase + require confirmation BEFORE writing the profile.
+    // If the user dismisses without confirming, no profile is created -
+    // they haven't committed to remembering anything.
+    const confirmed = window.confirm(
+      `${t("profile.newPromptShowPhrase")}\n\n    ${phraseText.toUpperCase()}\n\nOK = ${t(
+        "profile.newPromptConfirm",
+      )}\nCancel = abort`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    // Create the empty profile + set as active.
+    try {
+      saveService.save(hash, {
+        version: 2,
+        profileHandle: handle,
+        currentCarrots: 0,
+        gems: 0,
+        abilities: [],
+        completedLevelIds: [],
+      });
+    } catch (err) {
+      this.showExchangeFeedback(
+        err instanceof SaveQuotaExceededError ? "Storage full" : "Save failed",
+      );
+      return;
+    }
+    this.registry.set(REGISTRY_KEY_ACTIVE_PROFILE_KEY, hash);
+    this.refreshTreasureDisplay();
+  }
+
+  /** Restore flow: prompt for handle + phrase, compute hash, set active if it matches. */
+  private async flowRestoreProfile(): Promise<void> {
+    const rawHandle = window.prompt(t("profile.restorePromptHandle"));
+    if (rawHandle === null) {
+      return;
+    }
+    let handle: string;
+    try {
+      handle = normalizeHandle(rawHandle);
+    } catch (err) {
+      this.showExchangeFeedback(
+        err instanceof ProfileValidationError ? err.message : t("profile.errorInvalidInput"),
+      );
+      return;
+    }
+
+    const rawPhrase = window.prompt(t("profile.restorePromptPhrase"));
+    if (rawPhrase === null) {
+      return;
+    }
+    let phrase: RecoveryPhrase;
+    try {
+      phrase = normalizePhrase(rawPhrase.split(/\s+/));
+    } catch (err) {
+      this.showExchangeFeedback(
+        err instanceof ProfileValidationError ? err.message : t("profile.errorInvalidInput"),
+      );
+      return;
+    }
+
+    const hash = await hashHandleAndPhrase(handle, phrase);
+    const saveService = this.requireSaveService();
+    if (saveService === undefined) {
+      this.showExchangeFeedback("Save service unavailable");
+      return;
+    }
+    const loaded = saveService.load(hash);
+    // EMPTY_SAVE_STATE has the epoch timestamp; a real save has a real
+    // timestamp. Use that as the "exists" check rather than poking at
+    // listProfileKeys (slower + browser-only).
+    if (loaded.lastPlayedAtIso === new Date(0).toISOString()) {
+      this.showExchangeFeedback(t("profile.errorNoSuchProfile"));
+      return;
+    }
+
+    this.registry.set(REGISTRY_KEY_ACTIVE_PROFILE_KEY, hash);
+    this.refreshTreasureDisplay();
   }
 }
