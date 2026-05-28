@@ -52,7 +52,7 @@ import {
   type ImageAssetDeclaration,
 } from "../services/asset-service.js";
 import { loadLevel, LevelLoadError } from "../services/level-loader.js";
-import { type SaveService } from "../services/save-service.js";
+import { LEGACY_PROFILE_KEY, type SaveService } from "../services/save-service.js";
 import { playCarrotBurst, playPowerupPickupFx } from "../systems/feedback-fx.js";
 import { evaluateNarratorTrigger } from "../systems/narrator-trigger.js";
 import { REGISTRY_KEY_SOUND_FX, type SoundFx } from "../systems/sound-fx.js";
@@ -588,8 +588,14 @@ export class LevelScene extends Phaser.Scene {
 
   /**
    * Write the run's contributions into SaveState. Adds this level to
-   * `completedLevelIds`, adds this run's carrots to `lifetimeCarrots`.
+   * `completedLevelIds`. Carrot → persistent-gem flow is intentionally
+   * NOT wired here in PR 2 (schema bump only); the carrot persistence
+   * + carry-across-levels + death-reset mechanics ship in a follow-up.
    * Failure is non-blocking and only logged.
+   *
+   * Uses LEGACY_PROFILE_KEY pending the MenuScene profile picker.
+   * Once profiles are pickable, the active profile key comes from the
+   * registry instead of being hard-wired to legacy.
    */
   private persistProgress(): void {
     const saveService = this.registry.get(REGISTRY_KEY_SAVE_SERVICE) as SaveService | undefined;
@@ -599,11 +605,14 @@ export class LevelScene extends Phaser.Scene {
       return;
     }
     try {
-      const current = saveService.load();
-      saveService.save({
-        version: 1,
+      const current = saveService.load(LEGACY_PROFILE_KEY);
+      saveService.save(LEGACY_PROFILE_KEY, {
+        version: 2,
+        profileHandle: current.profileHandle,
+        currentCarrots: current.currentCarrots,
+        gems: current.gems,
+        abilities: current.abilities,
         completedLevelIds: [...current.completedLevelIds, this.levelId],
-        lifetimeCarrots: current.lifetimeCarrots + this.carrotsCollected,
       });
     } catch (err) {
       console.warn(`LevelScene: progress save failed: ${String(err)}`);
