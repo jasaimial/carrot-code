@@ -83,6 +83,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     // Set initial direction velocity. Direction +1 = toward `max`.
     this.applyVelocity();
+    // Mirror the initial sprite orientation to match the starting
+    // patrol direction. update() only calls setFlipX when direction
+    // CHANGES; without this initial set, an enemy whose first
+    // direction is +1 (default) would render with the default-left
+    // sprite facing wrong-way during the first half-patrol cycle.
+    if (this.axis === "horizontal") {
+      this.setFlipX(this.direction === 1);
+    }
   }
 
   /**
@@ -100,8 +108,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.direction = newDir;
       this.applyVelocity();
       // Flip sprite to face new direction (horizontal only).
+      //
+      // Sprite-flip convention: the Kenney pixel-platformer character
+      // sheet's default frame faces LEFT. Flip when patrolling RIGHT so
+      // the sprite faces the direction of travel. Same off-by-one as
+      // the hero (see src/entities/hero.ts update() for full comment).
       if (this.axis === "horizontal") {
-        this.setFlipX(this.direction === -1);
+        this.setFlipX(this.direction === 1);
       }
     }
   }
