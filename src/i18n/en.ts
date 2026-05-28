@@ -51,6 +51,21 @@ export const EN = {
   "hint.controlsKeyboard": "← → move    •    Space jump    •    F throw carrot",
   "hint.controlsTouch": "Move + jump with on-screen buttons. THROW a carrot to clear enemies.",
 
+  // --- Treasure Box + Exchange (MenuScene) ------------------------------
+  // Player-facing copy stays game-flavored. The narrator voice spans
+  // these too: dry, observational, never moralizing about the choice.
+  "treasure.heading": "Treasure Box",
+  "treasure.carrotsLabel": "🥕 Carrots",
+  "treasure.gemsLabel": "💎 Gems",
+  "treasure.abilitiesLabel": "✨ Abilities",
+  "treasure.profileLabel": "Player",
+  "exchange.heading": "Trade",
+  "exchange.toGems": "10 🥕 → 1 💎",
+  "exchange.toCarrots": "1 💎 → 10 🥕",
+  "exchange.errorNotEnoughCarrots": "Not enough carrots",
+  "exchange.errorNotEnoughGems": "Not enough gems",
+  "exchange.errorGemCapReached": "Gem chest is full",
+
   // --- Audio mute toggle (UIScene corner button) ------------------------
   // Glyphs render cross-platform; emoji fallback fonts on iOS render
   // these as full-color, monospace on desktop renders them as outline.

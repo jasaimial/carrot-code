@@ -31,12 +31,21 @@ import { LevelScene } from "./scenes/LevelScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { UIScene } from "./scenes/UIScene";
 import { KennyAssetService } from "./services/asset-service.js";
-import { LocalStorageSaveService } from "./services/save-service.js";
+import { LEGACY_PROFILE_KEY, LocalStorageSaveService } from "./services/save-service.js";
 import { SoundFx, REGISTRY_KEY_SOUND_FX } from "./systems/sound-fx.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "./systems/touch-input-store.js";
 
 /** Registry key the shared SaveService is mounted under. */
 export const REGISTRY_KEY_SAVE_SERVICE = "saveService";
+
+/**
+ * Registry key holding the active profile's storage key. Scenes that
+ * need to read/write SaveState reach for this instead of hard-coding
+ * the legacy key. MenuScene profile picker (future PR) writes here when
+ * the player switches profiles; until that lands, it stays seeded to
+ * LEGACY_PROFILE_KEY at boot so existing data still flows.
+ */
+export const REGISTRY_KEY_ACTIVE_PROFILE_KEY = "activeProfileKey";
 
 /**
  * The complete list of scenes registered with the Phaser game, in boot order.
@@ -113,6 +122,10 @@ export function startGame(parent: HTMLElement): Phaser.Game {
         // lazily on the first sound (iOS Safari needs a user gesture
         // first, which it gets on the MenuScene Play button).
         game.registry.set(REGISTRY_KEY_SOUND_FX, new SoundFx());
+        // Active profile defaults to the legacy slot (migrated v1 data,
+        // or empty for fresh installs). The MenuScene profile picker
+        // will write a real profile hash here when the player picks.
+        game.registry.set(REGISTRY_KEY_ACTIVE_PROFILE_KEY, LEGACY_PROFILE_KEY);
         // SaveService is browser-only (needs window.localStorage). Guard
         // here so a future test-host that constructs the Phaser game
         // without localStorage doesn't crash at boot.
