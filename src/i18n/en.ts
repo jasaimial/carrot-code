@@ -66,6 +66,25 @@ export const EN = {
   "exchange.errorNotEnoughGems": "Not enough gems",
   "exchange.errorGemCapReached": "Gem chest is full",
 
+  // --- Profile picker (MenuScene overlay) --------------------------------
+  "profile.switchButton": "Switch player",
+  "profile.title": "Choose your player",
+  "profile.newButton": "+ New player",
+  "profile.restoreButton": "Restore with phrase",
+  "profile.cancelButton": "Cancel",
+  "profile.legacyLabel": "(legacy save)",
+  "profile.newPromptHandle": "Pick a player name (lowercase + digits, 2-20 chars):",
+  "profile.newPromptShowPhrase":
+    "Your recovery phrase — write it down NOW. Without it, this treasure is lost forever.",
+  "profile.newPromptConfirm": "I have written down the phrase",
+  "profile.restorePromptHandle": "Your player name:",
+  "profile.restorePromptPhrase":
+    "Your 4-word recovery phrase (space-separated, e.g. 'blue hamster loves reading'):",
+  "profile.restoreButtonConfirm": "Restore",
+  "profile.errorHandleExists": "That name already exists; pick another or use Restore.",
+  "profile.errorNoSuchProfile": "No save found for that name + phrase.",
+  "profile.errorInvalidInput": "Invalid input — check the format and try again.",
+
   // --- Audio mute toggle (UIScene corner button) ------------------------
   // Glyphs render cross-platform; emoji fallback fonts on iOS render
   // these as full-color, monospace on desktop renders them as outline.
