@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-21 (v0.1-demo tagged + merged to main)
-**Active branch:** `main` (production). The 001-vertical-slice feature branch is now merged + tag-locked at `v0.1-demo` → commit `2a195a5`. Future work moves to new feature branches off `main`.
-**Current state:** **v0.1 demo build is live and tag-locked.** All P0 demo-sprint work shipped: title screen, narrator, lives + powerup + persistence, parallax backdrop, particles, chiptune SFX, mute toggle, carrot-throw shooting mechanic, extended 120-tile 4-section level, Play-again restart hardened against the registry-listener race documented at 2026-05-21.
+**Last updated:** 2026-05-28 (v0.3 profile + Treasure Box economy arc shipped)
+**Active branch:** `main` (production). Future work moves to new feature branches off `main`.
+**Current state:** **v0.3 profile + Treasure Box economy is end-to-end functional.** Five PRs landed across one session (#12-#16) per the agreed plan: word bank + ProfileService (pure logic), SaveState v2 schema with per-profile storage + v1 migration, carrot persistence rules + pure exchange logic, Treasure Box display + carrot/gem exchange UI, and the profile picker (New / Restore with recovery-phrase). v0.1-demo tag retagged to the new HEAD so the cohort URL stays current. **Awaiting maintainer review + playtest of the new flows.**
 **Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `main`). Title-screen bottom-right stamps the live commit's short SHA + UTC build timestamp so cache-vs-fresh is verifiable at a glance.
-**Local dev:** `npm run dev` → title screen → Play → walk right, intro carrots → first slime + powerup → jump the 2 ground gaps, throw carrots (F or X on keyboard / THROW button on touch) to clear the platform-mounted slimes → final climb to bonus powerup + end-trigger. Run length: ~60-90s.
+**Local dev:** `npm run dev` → title screen → see the Treasure Box panel top-right (Player, Carrots, Gems, Abilities) + trade buttons + "Switch player" → Play → walk right, carrots persist to your satchel + survive level transitions but zero on death → reach end-trigger → back to MenuScene, see updated counts.
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -18,26 +18,32 @@
 
 ## TL;DR — where we are
 
-- **v0.1-demo shipped 2026-05-21.** Tagged at commit `2a195a5` on `main`.
-  Branch protection is enforced on main: PR + CI green + linear history
-  required. Production deploys auto-trigger on push to main via the SWA
-  workflow.
-- **Phases 1-5 all complete on disk.** Vertical-slice spec (001) is
-  demoable end-to-end; demo-sprint polish layer ships on top.
-- **Carrot-throw mechanic** (post-original-spec addition): hero spends
-  one collected carrot per throw, projectile travels horizontally, hits
-  enemy = mutual destroy. Adds risk/reward to collection. Section 3 of
-  the extended level requires it (slimes on narrow platforms above
-  ground gaps); sections 1-2 don't, so the mechanic introduces itself
-  organically through level design.
-- **Demo target:** in-person cohort, **Saturday 2026-05-23**. Maintainer
-  takes notes via observation + conversation; no in-build feedback form.
-- **What's NOT in v0.1-demo** (post-cohort backlog): T051 narrator
-  playtest sign-off, adaptive narrator prototype, cross-browser
-  baseline matrix (T064a), CC0 audio asset swap, code-splitting, real
-  PWA icon art (placeholders ship).
+- **v0.1-demo tag points to the latest `main` HEAD** (currently the v0.3
+  arc + retag). Cohort URL always serves the most-recent merged state.
+  Branch protection enforced on main: PR + CI green + linear history
+  required.
+- **v0.3 ECONOMY ARC complete on disk (2026-05-28):**
+  - **Carrots** = per-run consumable. Carry across levels. **Lost on death.**
+  - **Gems** = persistent valuables in the Treasure Box. Survive death.
+    Hard-capped at 21,000,000 per profile (a world rule).
+  - **Abilities** = persistent owned identifiers (e.g. `bunny-hop` in
+    future). Permanent once purchased.
+  - **Exchange**: 1 gem ↔ 10 carrots, symmetric, player-initiated on
+    MenuScene. No auto-conversion at level-end.
+  - **Profile system**: local-only, identified by player-chosen handle
+    + 4-word recovery phrase from a curated 100^4 word bank. Storage
+    key is `SHA-256(handle + ":" + phrase)`. Lose the phrase = lose the
+    treasure (architecturally enforced, no recovery path).
+- **Cohort feedback closed**: item #4 (eye-direction) shipped at PR #11.
+  Items #10 + #5 + #14 (the three independent kid-asks for an economy)
+  inspired this v0.3 arc.
+- **What's NOT in v0.3** (next direction is maintainer's call after
+  playtest): Bunny Hop ability + buyable shield (mechanically ready,
+  awaits price tuning), in-canvas profile-input UI (currently uses
+  window.prompt/confirm for rough first cut), profile list in picker
+  (Restore requires knowing the handle).
 - **Repo is public**, CI mechanically enforces all five gates on main
-  (Principle VIII).
+  (Principle VIII). 165 tests across 14 files.
 
 ## Quick-start: come back to a working dev loop
 
@@ -225,28 +231,37 @@ tests/
   to find what needs tuning. T060 (polish) is the dedicated retune
   pass.
 
-## Next 3 actions (post-merge)
+## Next 3 actions (post-v0.3 economy)
 
-1. **Smoke-test the demo build at the live URL** on iOS Safari + desktop.
-   Verify the title screen shows the new merge SHA `2a195a5` (or higher
-   if hot-fixes land). Walk: title → play → controls hint → narrator →
-   collect/jump through section 1 + 2 → carrot-throw on section 3 →
-   final climb → die deliberately + Play-again → complete + Play-again.
-   Any visible regressions become hot-fix branches off main, fast-PR-
-   merge, retag v0.1-demo if needed.
-2. **Sign off T051 in [playtests/us3.md](../../specs/001-vertical-slice/playtests/us3.md).**
-   The narrator + dismiss + replay-reset behavior shipped in the demo;
-   maintainer walks the checklist and adds the sign-off line at the
-   bottom. Can happen in any order vs item 1; the playtest doesn't gate
-   anything.
-3. **Demo Saturday.** Take notes during play + via conversation. After
-   the demo, the polish-phase backlog opens (T060: tune config values
-   per cohort feedback; T064a: cross-browser matrix; CC0 audio swap;
-   adaptive narrator prototype). Pick winners based on what the cohort
-   actually surfaced.
+1. **Playtest the v0.3 economy on the live URL** — the maintainer's
+   end-to-end pass through the new flows. Walk:
+   - Title screen → confirm Treasure Box panel shows top-right with
+     "Player: guest" and zeroes (or whatever the legacy save migrated).
+   - Play a level → collect some carrots → reach end-trigger → return
+     to title → confirm Carrots count carried over.
+   - Play again → die deliberately → confirm Carrots zeroed but Gems
+     untouched.
+   - Trade 10 carrots → 1 gem on MenuScene; trade back; confirm counts.
+   - Tap "Switch player" → New → enter handle → confirm phrase shown
+     once → enter game → confirm new profile is active in panel.
+   - Tap "Switch player" → Restore → re-enter previous handle + wrong
+     phrase → confirm "no save found" error → enter correct phrase →
+     confirm restore.
+   File any surprises as hot-fix branches off main.
+2. **Decide next direction post-playtest** — three candidates, all
+   architecturally ready:
+   - **Bunny Hop ability** (cohort #9): first buyable. Spends gems
+     from Treasure Box, owned forever. Needs price tuning.
+   - **Damage-budget shield** (cohort #5): replaces the timed gold
+     powerup. Buyable consumable stack. Needs balance pass.
+   - **Polish pass on profile picker**: replace window.prompt with
+     in-canvas input fields; show list of existing profile handles.
+3. **Optional non-economy backlog** (still open from v0.1-demo):
+   T051 narrator playtest sign-off; cross-browser matrix (T064a);
+   real CC0 audio swap; adaptive narrator prototype.
 
-Natural stopping points: after smoke-test confirmation, after T051
-sign-off, after the demo itself (post-demo backlog opens).
+Natural stopping points: after the v0.3 playtest, after the next
+direction is chosen, after that direction's first PR ships.
 
 ## Stay-the-course sprint addendum (visual tone + identity, low drift)
 
