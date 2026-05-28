@@ -116,17 +116,32 @@ export class LevelScene extends Phaser.Scene {
     this.projectiles.length = 0;
     this.terrainLayer = undefined;
     this.worldHeight = 0;
-    this.carrotsCollected = 0;
+    // Load currentCarrots from SaveState - carrots carry across levels.
+    // Falls back to 0 if SaveService is unavailable.
+    this.carrotsCollected = this.readPersistedCarrots();
     this.hasEnded = false;
     this.spawnTimeMs = 0;
     this.level = undefined;
     this.firedBeatIds.clear();
     this.activeBeatId = undefined;
     // Seed HUD state on the registry; UIScene reads + watches it.
-    this.registry.set(REGISTRY_KEY_CARROT_COUNT, 0);
+    this.registry.set(REGISTRY_KEY_CARROT_COUNT, this.carrotsCollected);
     this.registry.set(REGISTRY_KEY_POWERUP_REMAINING_MS, 0);
     // Narrator dialog hidden on (re)start (T050: replay re-fires beats).
     this.registry.set(REGISTRY_KEY_NARRATOR_TEXT, "");
+  }
+
+  /** Read the persisted carrot count for the active profile; 0 on any failure. */
+  private readPersistedCarrots(): number {
+    const saveService = this.registry.get(REGISTRY_KEY_SAVE_SERVICE) as SaveService | undefined;
+    if (saveService === undefined) {
+      return 0;
+    }
+    try {
+      return saveService.load(LEGACY_PROFILE_KEY).currentCarrots;
+    } catch {
+      return 0;
+    }
   }
 
   /** Phaser hook — build the tilemap and configure the camera. */
@@ -567,12 +582,11 @@ export class LevelScene extends Phaser.Scene {
       return;
     }
     this.hasEnded = true;
-    // Persist progress on level-complete. SaveService failure is
-    // non-blocking (Principle: don't crash the game over a save bug)
-    // — we log + continue. Gameover doesn't persist anything.
-    if (outcome === "complete") {
-      this.persistProgress();
-    }
+    // Persist progress on BOTH outcomes (v0.3 carrot persistence rules):
+    //   - "complete": carrots carry to next level + level marked done.
+    //   - "gameover": carrots reset to 0 (death penalty).
+    // SaveService failure is non-blocking (we log + continue).
+    this.persistProgress(outcome);
     // Stop UIScene explicitly (it runs in parallel; scene.start on
     // GameOverScene only stops the calling scene). Then transition.
     //
@@ -587,17 +601,18 @@ export class LevelScene extends Phaser.Scene {
   }
 
   /**
-   * Write the run's contributions into SaveState. Adds this level to
-   * `completedLevelIds`. Carrot → persistent-gem flow is intentionally
-   * NOT wired here in PR 2 (schema bump only); the carrot persistence
-   * + carry-across-levels + death-reset mechanics ship in a follow-up.
-   * Failure is non-blocking and only logged.
+   * Write the run's contributions into SaveState. Behavior depends on
+   * outcome:
+   *   - "complete": persist currentCarrots (they carry to next level)
+   *     + add this level to completedLevelIds.
+   *   - "gameover": reset currentCarrots to 0 (death penalty per
+   *     agreed v0.3 rules). completedLevelIds NOT updated since the
+   *     level wasn't actually finished.
    *
    * Uses LEGACY_PROFILE_KEY pending the MenuScene profile picker.
-   * Once profiles are pickable, the active profile key comes from the
-   * registry instead of being hard-wired to legacy.
+   * Failure is non-blocking and only logged.
    */
-  private persistProgress(): void {
+  private persistProgress(outcome: "complete" | "gameover"): void {
     const saveService = this.registry.get(REGISTRY_KEY_SAVE_SERVICE) as SaveService | undefined;
     if (saveService === undefined) {
       // SaveService failed to construct at boot (e.g. private-mode storage
@@ -606,13 +621,18 @@ export class LevelScene extends Phaser.Scene {
     }
     try {
       const current = saveService.load(LEGACY_PROFILE_KEY);
+      const newCarrots = outcome === "gameover" ? 0 : this.carrotsCollected;
+      const newCompletedLevels =
+        outcome === "complete"
+          ? [...current.completedLevelIds, this.levelId]
+          : current.completedLevelIds;
       saveService.save(LEGACY_PROFILE_KEY, {
         version: 2,
         profileHandle: current.profileHandle,
-        currentCarrots: current.currentCarrots,
+        currentCarrots: newCarrots,
         gems: current.gems,
         abilities: current.abilities,
-        completedLevelIds: [...current.completedLevelIds, this.levelId],
+        completedLevelIds: newCompletedLevels,
       });
     } catch (err) {
       console.warn(`LevelScene: progress save failed: ${String(err)}`);
