@@ -262,7 +262,7 @@ export class TreasureScene extends Phaser.Scene {
     storeText(big);
   }
 
-  /** Build one big market-exchange button. */
+  /** Build one big market-exchange button. Text itself is the click target. */
   private buildMarketButton(cx: number, cy: number, label: string, onClick: () => void): void {
     const text = this.add
       .text(cx, cy, label, {
@@ -272,20 +272,16 @@ export class TreasureScene extends Phaser.Scene {
         backgroundColor: PALETTE_HEX.bgDialog,
         padding: { x: 18, y: 10 },
       })
-      .setOrigin(0.5);
-
-    const hit = this.add
-      .rectangle(cx, cy, 200, 40)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
 
-    hit.on(Phaser.Input.Events.POINTER_OVER, () => {
+    text.on(Phaser.Input.Events.POINTER_OVER, () => {
       text.setColor(PALETTE_HEX.uiCarrot);
     });
-    hit.on(Phaser.Input.Events.POINTER_OUT, () => {
+    text.on(Phaser.Input.Events.POINTER_OUT, () => {
       text.setColor(PALETTE_HEX.textCream);
     });
-    hit.on(Phaser.Input.Events.POINTER_DOWN, () => {
+    text.on(Phaser.Input.Events.POINTER_DOWN, () => {
       onClick();
     });
   }
@@ -382,7 +378,7 @@ export class TreasureScene extends Phaser.Scene {
     this.buildLevelList(width / 2, 380, state);
   }
 
-  /** Build the bottom-right Hop In button. */
+  /** Build the bottom-right Hop In button. The text itself is the click target. */
   private buildHopInButton(rightX: number, bottomY: number): void {
     const text = this.add
       .text(rightX, bottomY, t("lobby.hopInButton"), {
@@ -392,22 +388,16 @@ export class TreasureScene extends Phaser.Scene {
         backgroundColor: PALETTE_HEX.bgDialog,
         padding: { x: 20, y: 12 },
       })
-      .setOrigin(1, 1);
-
-    const w = text.width + 20;
-    const h = text.height + 12;
-    const hit = this.add
-      .rectangle(rightX, bottomY, w, h)
       .setOrigin(1, 1)
       .setInteractive({ useHandCursor: true });
 
-    hit.on(Phaser.Input.Events.POINTER_OVER, () => {
+    text.on(Phaser.Input.Events.POINTER_OVER, () => {
       text.setColor(PALETTE_HEX.textCream);
     });
-    hit.on(Phaser.Input.Events.POINTER_OUT, () => {
+    text.on(Phaser.Input.Events.POINTER_OUT, () => {
       text.setColor(PALETTE_HEX.uiCarrot);
     });
-    hit.on(Phaser.Input.Events.POINTER_DOWN, () => {
+    text.on(Phaser.Input.Events.POINTER_DOWN, () => {
       this.hopIntoWorld();
     });
 
@@ -423,7 +413,7 @@ export class TreasureScene extends Phaser.Scene {
     }
   }
 
-  /** Build the bottom-left Switch Player button. */
+  /** Build the bottom-left Switch Player button. The text itself is the click target. */
   private buildSwitchPlayerButton(leftX: number, bottomY: number): void {
     const text = this.add
       .text(leftX, bottomY, t("lobby.switchPlayer"), {
@@ -434,22 +424,16 @@ export class TreasureScene extends Phaser.Scene {
         padding: { x: 12, y: 6 },
       })
       .setOrigin(0, 1)
-      .setAlpha(0.85);
-
-    const w = text.width + 12;
-    const h = text.height + 6;
-    const hit = this.add
-      .rectangle(leftX, bottomY, w, h)
-      .setOrigin(0, 1)
+      .setAlpha(0.85)
       .setInteractive({ useHandCursor: true });
 
-    hit.on(Phaser.Input.Events.POINTER_OVER, () => {
+    text.on(Phaser.Input.Events.POINTER_OVER, () => {
       text.setColor(PALETTE_HEX.uiCarrot);
     });
-    hit.on(Phaser.Input.Events.POINTER_OUT, () => {
+    text.on(Phaser.Input.Events.POINTER_OUT, () => {
       text.setColor(PALETTE_HEX.textCream);
     });
-    hit.on(Phaser.Input.Events.POINTER_DOWN, () => {
+    text.on(Phaser.Input.Events.POINTER_DOWN, () => {
       if (this.hopped) return;
       this.hopped = true;
       this.scene.start("StartScene");
