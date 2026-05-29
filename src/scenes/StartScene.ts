@@ -327,6 +327,11 @@ export class StartScene extends Phaser.Scene {
   /**
    * Set the active profile + transition. Used by all the "real profile"
    * routes; guest takes the separate `startAsGuest` path.
+   *
+   * scene.start deferred to next tick (time.delayedCall 0) to avoid
+   * the Phaser 4 input-dispatcher freeze when starting a scene
+   * synchronously inside a POINTER_DOWN handler. Same fix shape as
+   * TreasureScene.hopIntoWorld (see its doc comment + repo memory).
    */
   private setActiveProfileAndGoToTreasure(profileKey: string): void {
     if (this.routed) {
@@ -334,7 +339,9 @@ export class StartScene extends Phaser.Scene {
     }
     this.routed = true;
     this.registry.set(REGISTRY_KEY_ACTIVE_PROFILE_KEY, profileKey);
-    this.scene.start("TreasureScene", { levelId: this.levelId });
+    this.time.delayedCall(0, () => {
+      this.scene.start("TreasureScene", { levelId: this.levelId });
+    });
   }
 
   /**
@@ -348,7 +355,9 @@ export class StartScene extends Phaser.Scene {
     }
     this.routed = true;
     this.registry.set(REGISTRY_KEY_ACTIVE_PROFILE_KEY, GUEST_PROFILE_KEY);
-    this.scene.start("LevelScene", { levelId: this.levelId });
+    this.time.delayedCall(0, () => {
+      this.scene.start("LevelScene", { levelId: this.levelId });
+    });
   }
 
   // ---- Create-new + Restore flows (window.prompt-based) ------------------

@@ -480,11 +480,23 @@ export class TreasureScene extends Phaser.Scene {
     text.on(Phaser.Input.Events.POINTER_DOWN, () => {
       if (this.hopped) return;
       this.hopped = true;
-      this.scene.start("StartScene");
+      // Defer scene.start to next tick — same input-dispatcher
+      // race as hopIntoWorld (see its doc comment).
+      this.time.delayedCall(0, () => {
+        this.scene.start("StartScene");
+      });
     });
   }
 
-  /** Validate level id + hop into LevelScene. Idempotent. */
+  /**
+   * Validate level id + hop into LevelScene. Idempotent.
+   *
+   * scene.start is deferred to the next tick via time.delayedCall(0).
+   * Calling scene.start synchronously from a POINTER_DOWN handler
+   * leaves Phaser's input dispatcher in a state where NO subsequent
+   * input registers (whole-scene freeze). Same footgun pattern as
+   * GameOverScene.restartLevel (PR #5 + repo memory note).
+   */
   private hopIntoWorld(): void {
     if (this.hopped) {
       return;
@@ -499,7 +511,9 @@ export class TreasureScene extends Phaser.Scene {
       return;
     }
     this.hopped = true;
-    this.scene.start("LevelScene", { levelId: targetId });
+    this.time.delayedCall(0, () => {
+      this.scene.start("LevelScene", { levelId: targetId });
+    });
   }
 
   // ---- Market actions (use pure economy.ts) ------------------------------
