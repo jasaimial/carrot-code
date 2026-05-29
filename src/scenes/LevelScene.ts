@@ -97,6 +97,15 @@ export class LevelScene extends Phaser.Scene {
   private terrainLayer: Phaser.Tilemaps.TilemapLayer | undefined;
   /** Cached world height (px) for the fell-off-world death check. */
   private worldHeight = 0;
+  /**
+   * Active water-hazard zones (Phaser physics-enabled zone objects).
+   * Tracked so the per-frame update() can re-test overlap and refresh
+   * the hero's inWaterCount — Phaser has no "overlap end" event so we
+   * poll each frame.
+   */
+  private readonly waterZones: Phaser.GameObjects.Zone[] = [];
+  /** Whether the hero was inside any water zone last frame. */
+  private heroWasInWater = false;
   private carrotsCollected = 0;
   private hasEnded = false;
   private spawnTimeMs = 0;
@@ -116,6 +125,8 @@ export class LevelScene extends Phaser.Scene {
     this.projectiles.length = 0;
     this.terrainLayer = undefined;
     this.worldHeight = 0;
+    this.waterZones.length = 0;
+    this.heroWasInWater = false;
     // Load currentCarrots from SaveState - carrots carry across levels.
     // Falls back to 0 if SaveService is unavailable.
     this.carrotsCollected = this.readPersistedCarrots();
@@ -207,6 +218,9 @@ export class LevelScene extends Phaser.Scene {
     }
     // Fire-poll: if hero wants to throw + we have ammo, spawn one.
     this.handleFirePoll();
+    // Water-zone poll: refresh hero's in-water flag each frame.
+    // (Phaser has no "overlap end" event, so we poll.)
+    this.pollWaterZones();
     // Fell-off-world check: hero falling into a ground gap should be a
     // death state, not an indefinite drop. World bottom is the bottom
     // of the tilemap; we add a small margin so the hero is visibly
@@ -559,8 +573,93 @@ export class LevelScene extends Phaser.Scene {
           });
           break;
         }
+        case "lava": {
+          // Lava: a rectangular zone with a static physics body.
+          // Hero overlap fires hero.takeHit() with the zone center as
+          // the knock-from x. Hero's invuln window (post-hit) filters
+          // multi-frame retrigger.
+          const cx = entity.x + entity.w / 2;
+          const cy = entity.y + entity.h / 2;
+          const zone = this.add.zone(cx, cy, entity.w, entity.h);
+          this.physics.add.existing(zone, true);
+          // Visual: tinted orange rect rendered above the gameplay
+          // layer so it reads as a hazard, not as floor.
+          this.add
+            .rectangle(cx, cy, entity.w, entity.h, this.parseHexToNumber(PALETTE_HEX.uiCarrot), 0.8)
+            .setOrigin(0.5)
+            .setStrokeStyle(2, this.parseHexToNumber(PALETTE_HEX.uiHeart), 0.9)
+            .setDepth(50);
+          this.physics.add.overlap(hero, zone, () => {
+            this.onHeroLavaContact(cx);
+          });
+          break;
+        }
+        case "water": {
+          // Water: same physics-zone shape as lava, but the contact
+          // mechanic is "slow movement" (no damage). LevelScene's
+          // per-frame update() polls each water zone to refresh the
+          // hero's inWaterCount (Phaser has no "overlap end" event).
+          const cx = entity.x + entity.w / 2;
+          const cy = entity.y + entity.h / 2;
+          const zone = this.add.zone(cx, cy, entity.w, entity.h);
+          this.physics.add.existing(zone, true);
+          // Visual: tinted blue rect rendered ABOVE the hero sprite
+          // so the hero appears half-submerged when standing in it.
+          // Hero sprite default depth = 0; we use depth 200 for water.
+          this.add
+            .rectangle(cx, cy, entity.w, entity.h, 0x4488cc, 0.55)
+            .setOrigin(0.5)
+            .setStrokeStyle(2, 0x66bbee, 0.7)
+            .setDepth(200);
+          this.waterZones.push(zone);
+          break;
+        }
       }
     }
+  }
+
+  /**
+   * Hero × lava overlap handler. Same routing as enemy-contact: hero
+   * takes a hit, possibly transitions to gameover.
+   */
+  private onHeroLavaContact(zoneX: number): void {
+    if (this.hero === undefined || this.hasEnded) {
+      return;
+    }
+    const outcome = this.hero.takeHit(zoneX);
+    if (outcome === "hurt") {
+      this.publishHeroLives();
+    } else if (outcome === "gameover") {
+      this.publishHeroLives();
+      this.endLevel("gameover");
+    }
+  }
+
+  /**
+   * Per-frame water-zone poll. Rectangle-intersection test against
+   * every water zone; the hero's enterWater/leaveWater calls maintain
+   * the slow-movement modifier. Polled (not callback-driven) because
+   * Phaser doesn't fire an "overlap end" event.
+   */
+  private pollWaterZones(): void {
+    if (this.hero === undefined || this.waterZones.length === 0) {
+      return;
+    }
+    const heroBounds = this.hero.getBounds();
+    let nowInWater = false;
+    for (const zone of this.waterZones) {
+      const zb = zone.getBounds();
+      if (Phaser.Geom.Intersects.RectangleToRectangle(heroBounds, zb)) {
+        nowInWater = true;
+        break;
+      }
+    }
+    if (nowInWater && !this.heroWasInWater) {
+      this.hero.enterWater();
+    } else if (!nowInWater && this.heroWasInWater) {
+      this.hero.leaveWater();
+    }
+    this.heroWasInWater = nowInWater;
   }
 
   /**

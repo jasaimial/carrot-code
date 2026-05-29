@@ -89,7 +89,35 @@ export interface PowerupConfig {
 }
 
 /**
+ * A rectangular hazard zone (lava or water). Encoded as a Tiled
+ * rectangle on the entities layer, NOT a tile in the terrain layer
+ * — lets us pick exact bounds and render a tinted visual without
+ * changing the tileset.
+ *
+ * Behavior is determined by `kind` (LevelScene dispatches):
+ *   - lava: touch → `hero.takeHit(zone.x)`. Hero's invuln window
+ *           prevents the every-frame retrigger.
+ *   - water: while overlapping → hero's horizontal velocity halved.
+ *            No damage. Visual: tinted blue rect rendered ABOVE the
+ *            hero so the hero appears half-submerged.
+ */
+export interface HazardConfig {
+  /** Discriminant. */
+  readonly kind: "lava" | "water";
+  /** Unique within the owning level. */
+  readonly id: string;
+  /** Top-left x in world coordinates. */
+  readonly x: number;
+  /** Top-left y in world coordinates. */
+  readonly y: number;
+  /** Width in world pixels. */
+  readonly w: number;
+  /** Height in world pixels. */
+  readonly h: number;
+}
+
+/**
  * Every entity kind the level loader can produce. Discriminated on
  * `kind` so dispatch is exhaustive without runtime type checks.
  */
-export type EntityConfig = EnemyConfig | CarrotConfig | PowerupConfig;
+export type EntityConfig = EnemyConfig | CarrotConfig | PowerupConfig | HazardConfig;
