@@ -609,7 +609,11 @@ export class LevelScene extends Phaser.Scene {
     // restart ended up with stale registry subscriptions. scene.start
     // on its own properly shuts down the calling scene.
     this.scene.stop("UIScene");
-    this.scene.start("GameOverScene", { outcome, levelId: this.levelId });
+    this.scene.start("GameOverScene", {
+      outcome,
+      levelId: this.levelId,
+      outcomeCarrots: this.carrotsCollected,
+    });
   }
 
   /**

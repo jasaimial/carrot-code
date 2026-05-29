@@ -85,6 +85,36 @@ export const EN = {
   "profile.errorNoSuchProfile": "No save found for that name + phrase.",
   "profile.errorInvalidInput": "Invalid input — check the format and try again.",
 
+  // --- StartScene (welcome / user picker, v0.4) -------------------------
+  "start.chooseHeading": "Who's playing?",
+  "start.noProfiles": "No players yet — create one below.",
+  "start.resumeButton": "Play",
+  "start.newPlayerButton": "+ New player",
+  "start.restoreButton": "Restore",
+  "start.guestButton": "Guest",
+
+  // --- TreasureScene (lobby with Treasure Box + market, v0.4) -----------
+  "lobby.heading": "Treasure Box",
+  "lobby.welcomeBack": "Welcome back, {handle}",
+  "lobby.firstTimeWelcome":
+    "Your Treasure Box. Carrots are what you spend; gems are what you keep. Trade between them when you want to.",
+  "lobby.satchelHeading": "In your satchel",
+  "lobby.boxHeading": "In the Box",
+  "lobby.abilitiesHeading": "Abilities",
+  "lobby.marketHeading": "Market",
+  "lobby.levelHeading": "Choose a level",
+  "lobby.levelLocked": "locked",
+  "lobby.levelCompleted": "✓ cleared",
+  "lobby.hopInButton": "▶  Hop into the world",
+  "lobby.switchPlayer": "← Different player",
+  "lobby.exchangeError.notEnoughCarrots": "Not enough carrots",
+  "lobby.exchangeError.notEnoughGems": "Not enough gems",
+  "lobby.exchangeError.gemCapReached": "Gem chest is full",
+  "lobby.outcomeComplete":
+    "Level cleared. Your satchel still holds {N}. That's the rule: what you carry, you keep.",
+  "lobby.outcomeGameover":
+    "The satchel spills. Carrots roll away. Your gems sit safe in the Treasure Box — that's what they're for.",
+
   // --- Audio mute toggle (UIScene corner button) ------------------------
   // Glyphs render cross-platform; emoji fallback fonts on iOS render
   // these as full-color, monospace on desktop renders them as outline.
@@ -114,6 +144,7 @@ export const EN = {
   "outcome.levelComplete": "Level complete!",
   "outcome.gameOver": "Game over",
   "outcome.playAgain": "Play again",
+  "outcome.continueButton": "Continue",
   "outcome.restarting": "Restarting…",
 
   // --- Narrator dialog framing (T049). The BEAT TEXT itself lives in

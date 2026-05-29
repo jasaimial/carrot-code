@@ -34,13 +34,13 @@
  * key in {@link LevelRegistry} below. TypeScript enforces parity via the
  * `Record<LevelId, ...>` type on the registry constant.
  */
-export type LevelId = "level-01";
+export type LevelId = "level-01" | "level-02";
 
 /**
  * Iterable form of {@link LevelId}, useful for build-time verifiers
  * (T059) and tests that iterate every level.
  */
-export const LEVEL_IDS: readonly LevelId[] = Object.freeze(["level-01"]);
+export const LEVEL_IDS: readonly LevelId[] = Object.freeze(["level-01", "level-02"]);
 
 /**
  * The shape of a level entry: a thunk returning a dynamic import that
@@ -61,6 +61,7 @@ export type LevelLoader = () => Promise<{ readonly default: string }>;
  */
 export const LevelRegistry: Readonly<Record<LevelId, LevelLoader>> = Object.freeze({
   "level-01": () => import("./level-01.tmj?url"),
+  "level-02": () => import("./level-02.tmj?url"),
 });
 
 /**

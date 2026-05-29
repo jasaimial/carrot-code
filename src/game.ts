@@ -28,7 +28,8 @@ import { PHYSICS } from "./config/physics.js";
 import { BootScene, REGISTRY_KEY_ASSET_SERVICE } from "./scenes/BootScene";
 import { GameOverScene } from "./scenes/GameOverScene";
 import { LevelScene } from "./scenes/LevelScene";
-import { MenuScene } from "./scenes/MenuScene";
+import { StartScene } from "./scenes/StartScene";
+import { TreasureScene } from "./scenes/TreasureScene";
 import { UIScene } from "./scenes/UIScene";
 import { KennyAssetService } from "./services/asset-service.js";
 import { LEGACY_PROFILE_KEY, LocalStorageSaveService } from "./services/save-service.js";
@@ -51,7 +52,7 @@ export const REGISTRY_KEY_ACTIVE_PROFILE_KEY = "activeProfileKey";
  * The complete list of scenes registered with the Phaser game, in boot order.
  * Adding a new scene means adding it here.
  */
-const SCENES = [BootScene, MenuScene, LevelScene, UIScene, GameOverScene] as const;
+const SCENES = [BootScene, StartScene, TreasureScene, LevelScene, UIScene, GameOverScene] as const;
 
 /**
  * Mount and start the Phaser game inside the given DOM element.

@@ -23,7 +23,9 @@ import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
 import { type LevelId } from "../data/levels/index.js";
+import { REGISTRY_KEY_ACTIVE_PROFILE_KEY } from "../game.js";
 import { t, type I18nKey } from "../i18n/index.js";
+import { GUEST_PROFILE_KEY } from "../services/save-service.js";
 
 /** Possible end-of-run outcomes. */
 export type GameOverOutcome = "complete" | "gameover";
@@ -34,12 +36,15 @@ interface GameOverSceneData {
   readonly outcome: GameOverOutcome;
   /** Which level to restart on Play-again. */
   readonly levelId: LevelId;
+  /** Carrots in the satchel at outcome time (for the post-outcome line). */
+  readonly outcomeCarrots?: number;
 }
 
-/** Renders the end-of-run screen with a Play-again button. */
+/** Renders the end-of-run screen with a Continue button. */
 export class GameOverScene extends Phaser.Scene {
   private outcome: GameOverOutcome = "complete";
   private levelId: LevelId = "level-01";
+  private outcomeCarrots = 0;
   /** Idempotent guard so a double-input doesn't double-start the level. */
   private restarting = false;
 
@@ -47,10 +52,11 @@ export class GameOverScene extends Phaser.Scene {
     super({ key: "GameOverScene" });
   }
 
-  /** Phaser hook — record the outcome + which level to restart. */
+  /** Phaser hook — record the outcome + which level to restart + carrot count. */
   public init(data: GameOverSceneData): void {
     this.outcome = data.outcome;
     this.levelId = data.levelId;
+    this.outcomeCarrots = data.outcomeCarrots ?? 0;
     this.restarting = false;
   }
 
@@ -84,7 +90,7 @@ export class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const playAgain = this.add
-      .text(width / 2, height / 2 + 32, `▶  ${t("outcome.playAgain")}`, {
+      .text(width / 2, height / 2 + 32, `▶  ${t("outcome.continueButton")}`, {
         fontFamily: "monospace",
         fontSize: "22px",
         color: PALETTE_HEX.uiCarrot,
@@ -148,10 +154,9 @@ export class GameOverScene extends Phaser.Scene {
    *      in the SAME frame as a subsequent start() can leave Phaser's
    *      scene state queue in an inconsistent state where PENDING_STOP
    *      wins the race and start() silently becomes a no-op - the
-   *      symptom being a Play-again button that visibly responds
-   *      (color flips, "Restarting…" text appears) but no actual
-   *      level restart. Confirmed broken on Phaser 4.1 iOS Safari
-   *      2026-05-21.
+   *      symptom being a button that visibly responds (color flips,
+   *      "Restarting…" text appears) but no actual transition.
+   *      Confirmed broken on Phaser 4.1 iOS Safari 2026-05-21.
    *
    *   2. We DEFER the start by one tick via `time.delayedCall(0)`.
    *      Calling scene.start synchronously inside a pointerdown
@@ -161,19 +166,29 @@ export class GameOverScene extends Phaser.Scene {
    *      delayedCall(0) yields to the next tick where Phaser's
    *      scene queue is empty and the start runs clean.
    *
-   * `scene.start("LevelScene", data)` from inside GameOverScene shuts
-   * down GameOverScene (Phaser standard behavior) and runs LevelScene
-   * with its init() + create() lifecycle. LevelScene.create() then
-   * launches UIScene back in parallel as usual.
+   * v0.4 routing: real profiles continue to TreasureScene (lobby);
+   * guest profiles replay LevelScene directly (no Treasure Box to
+   * visit). Both paths use the same delayed-start guard.
    */
   private restartLevel(): void {
-    // Idempotent guard so a fast Enter + tap can't double-fire.
     if (this.restarting) {
       return;
     }
     this.restarting = true;
+    const profileKey = this.registry.get(REGISTRY_KEY_ACTIVE_PROFILE_KEY) as unknown;
+    const isGuest = profileKey === GUEST_PROFILE_KEY;
     this.time.delayedCall(0, () => {
-      this.scene.start("LevelScene", { levelId: this.levelId });
+      if (isGuest) {
+        // Guests skip the lobby; replay the same level.
+        this.scene.start("LevelScene", { levelId: this.levelId });
+      } else {
+        // Real profiles return to the lobby with the outcome line on top.
+        this.scene.start("TreasureScene", {
+          levelId: this.levelId,
+          outcome: this.outcome,
+          outcomeCarrots: this.outcomeCarrots,
+        });
+      }
     });
   }
 
