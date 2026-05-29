@@ -1,10 +1,10 @@
 # Handover — carrot-code
 
-**Last updated:** 2026-05-28 (v0.3 profile + Treasure Box economy arc shipped)
+**Last updated:** 2026-05-28 (v0.4 weekend rebuild shipped: StartScene + TreasureScene full-screen lobby, level-02 with hazards, twilight backdrop, in-level gem counter)
 **Active branch:** `main` (production). Future work moves to new feature branches off `main`.
-**Current state:** **v0.3 profile + Treasure Box economy is end-to-end functional.** Five PRs landed across one session (#12-#16) per the agreed plan: word bank + ProfileService (pure logic), SaveState v2 schema with per-profile storage + v1 migration, carrot persistence rules + pure exchange logic, Treasure Box display + carrot/gem exchange UI, and the profile picker (New / Restore with recovery-phrase). v0.1-demo tag retagged to the new HEAD so the cohort URL stays current. **Awaiting maintainer review + playtest of the new flows.**
+**Current state:** **v0.4 second-cohort-demo build is end-to-end functional.** Four PRs landed in one solo session per the agreed plan (#18-#21): lobby restructure with full-screen TreasureScene + new StartScene + level-02 .tmj file; lava + water hazard runtime; in-level HUD gem counter; theme-aware backdrop with twilight palette + drift clouds + 3-layer parallax + castle silhouette for level-02. v0.1-demo tag retagged to the new HEAD so the cohort URL stays current. **Awaiting maintainer playtest of the full flow.**
 **Live build:** <https://happy-desert-0fe507f1e.7.azurestaticapps.net> (auto-deploys from `main`). Title-screen bottom-right stamps the live commit's short SHA + UTC build timestamp so cache-vs-fresh is verifiable at a glance.
-**Local dev:** `npm run dev` → title screen → see the Treasure Box panel top-right (Player, Carrots, Gems, Abilities) + trade buttons + "Switch player" → Play → walk right, carrots persist to your satchel + survive level transitions but zero on death → reach end-trigger → back to MenuScene, see updated counts.
+**Local dev:** `npm run dev` → StartScene with user picker (existing profiles + New + Restore + Guest) → Guest goes straight to LevelScene; real profiles go to TreasureScene (full-screen lobby) → pick level (level-02 unlocks after level-01 cleared) → Hop into the world → LevelScene with new HUD gem counter → outcome → GameOverScene flash → back to TreasureScene with narrator outcome line on top.
 
 > This doc is a **living snapshot** of where the project is right now. It's
 > the single page to read when picking up the project after time away — by
@@ -18,32 +18,42 @@
 
 ## TL;DR — where we are
 
-- **v0.1-demo tag points to the latest `main` HEAD** (currently the v0.3
-  arc + retag). Cohort URL always serves the most-recent merged state.
-  Branch protection enforced on main: PR + CI green + linear history
-  required.
-- **v0.3 ECONOMY ARC complete on disk (2026-05-28):**
-  - **Carrots** = per-run consumable. Carry across levels. **Lost on death.**
-  - **Gems** = persistent valuables in the Treasure Box. Survive death.
-    Hard-capped at 21,000,000 per profile (a world rule).
-  - **Abilities** = persistent owned identifiers (e.g. `bunny-hop` in
-    future). Permanent once purchased.
-  - **Exchange**: 1 gem ↔ 10 carrots, symmetric, player-initiated on
-    MenuScene. No auto-conversion at level-end.
-  - **Profile system**: local-only, identified by player-chosen handle
-    + 4-word recovery phrase from a curated 100^4 word bank. Storage
-    key is `SHA-256(handle + ":" + phrase)`. Lose the phrase = lose the
-    treasure (architecturally enforced, no recovery path).
-- **Cohort feedback closed**: item #4 (eye-direction) shipped at PR #11.
-  Items #10 + #5 + #14 (the three independent kid-asks for an economy)
-  inspired this v0.3 arc.
-- **What's NOT in v0.3** (next direction is maintainer's call after
-  playtest): Bunny Hop ability + buyable shield (mechanically ready,
-  awaits price tuning), in-canvas profile-input UI (currently uses
-  window.prompt/confirm for rough first cut), profile list in picker
-  (Restore requires knowing the handle).
-- **Repo is public**, CI mechanically enforces all five gates on main
-  (Principle VIII). 165 tests across 14 files.
+- **v0.1-demo tag points to the latest `main` HEAD** (currently the v0.4
+  arc + HANDOVER refresh). Cohort URL always serves the most-recent
+  merged state. Branch protection enforced on main.
+- **v0.4 WEEKEND REBUILD complete on disk (2026-05-28):**
+  - **StartScene** (new): user picker with row-per-profile, + New +
+    Restore + Guest buttons. Guest path skips TreasureScene and is
+    fully ephemeral (data cleared on every session).
+  - **TreasureScene** (replaces v0.3 MenuScene): full-screen lobby
+    with Treasure Box (carrots + gems + abilities), Market (10c↔1g
+    exchange), Level select (with locked/unlocked/cleared states),
+    Hop In button + Switch Player button. Header carries post-outcome
+    narrator line when arriving from GameOverScene.
+  - **Level 02 fully playable**: 90-col layout, 1 lava pit (hit +
+    knockback), 1 water pond (slow movement, hero half-submerged),
+    5 carrots, 1 slime, 1 powerup. Unlocks when level-01 cleared.
+  - **In-level HUD gem counter** below the carrot counter. Surfaces
+    persistent value during play.
+  - **Twilight theme** for level-02 (indigo→violet sky, lavender
+    clouds, distant castle silhouette).
+  - **Drift clouds + 3rd hill layer** for level-01 (denser daytime).
+- **Cohort feedback addressed by v0.4:**
+  - #5 (shield/buyable items): Treasure Box + Market present; specific
+    buyables (Bunny Hop, damage-budget shield) still need tuning.
+  - #6 (lava): added in level-02.
+  - #8 (water): added in level-02.
+  - #12 (background looks flat): density added via drift clouds +
+    3rd parallax layer + castle silhouette for L2.
+  - #10 (validate gem-as-money): in-level HUD now shows gem count
+    during play, making the value visible.
+- **What's NOT in v0.4** (next direction, maintainer's call):
+  Bunny Hop ability + buyable shield (mechanically ready, need
+  pricing); in-canvas profile-input UI (still uses window.prompt);
+  in-game Treasure Box pause modal (stretch, deferred from this
+  session).
+- **Repo is public**, CI enforces all five gates on main. 165 tests
+  across 14 files.
 
 ## Quick-start: come back to a working dev loop
 
