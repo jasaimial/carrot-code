@@ -54,6 +54,17 @@ const LEGACY_V1_KEY = "carrot-code:v1:save";
  */
 export const LEGACY_PROFILE_KEY = "_legacy";
 
+/**
+ * Sentinel profile key used for guest sessions. Same anti-collision
+ * property as LEGACY_PROFILE_KEY (leading underscore). Writes to this
+ * key work normally during the session, but StartScene clears it on
+ * every session start so guest progress never persists across launches.
+ *
+ * UI surfaces should filter both sentinel keys out of the user-facing
+ * "existing profiles" list — they are infrastructure, not real players.
+ */
+export const GUEST_PROFILE_KEY = "_guest";
+
 /** Current supported in-payload schema version. */
 const CURRENT_SCHEMA_VERSION = 2;
 
