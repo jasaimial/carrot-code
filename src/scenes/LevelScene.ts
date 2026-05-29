@@ -56,7 +56,7 @@ import { LEGACY_PROFILE_KEY, type SaveService } from "../services/save-service.j
 import { playCarrotBurst, playPowerupPickupFx } from "../systems/feedback-fx.js";
 import { evaluateNarratorTrigger } from "../systems/narrator-trigger.js";
 import { REGISTRY_KEY_SOUND_FX, type SoundFx } from "../systems/sound-fx.js";
-import { installBackdrop } from "../systems/visual-backdrop.js";
+import { installBackdrop, type BackdropTheme } from "../systems/visual-backdrop.js";
 import type { LevelData } from "../types/level.js";
 
 import { REGISTRY_KEY_ASSET_SERVICE } from "./BootScene.js";
@@ -175,7 +175,9 @@ export class LevelScene extends Phaser.Scene {
     const map = this.buildTilemap();
     // Install parallax backdrop BEFORE rendering tile layers so its
     // negative-depth Graphics objects don't have to fight for z-order.
-    installBackdrop(this, map.widthInPixels, map.heightInPixels);
+    // Theme is selected per level id: level-01 daytime, level-02 twilight.
+    const theme: BackdropTheme = this.levelId === "level-02" ? "twilight" : "daytime";
+    installBackdrop(this, map.widthInPixels, map.heightInPixels, theme);
     const terrainLayer = this.renderTileLayersWithCollision(map);
     this.terrainLayer = terrainLayer;
     this.worldHeight = map.heightInPixels;
