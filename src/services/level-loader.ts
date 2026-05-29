@@ -28,6 +28,7 @@ import type {
   CarrotConfig,
   EnemyConfig,
   EntityConfig,
+  HazardConfig,
   PowerupConfig,
 } from "../types/entity-config.js";
 import type { LevelData } from "../types/level.js";
@@ -82,7 +83,7 @@ interface TiledMap {
 }
 
 /** Every value the `kind` custom property is allowed to take. */
-const VALID_KINDS = ["spawn", "end", "enemy", "carrot", "powerup"] as const;
+const VALID_KINDS = ["spawn", "end", "enemy", "carrot", "powerup", "lava", "water"] as const;
 type Kind = (typeof VALID_KINDS)[number];
 
 /**
@@ -136,6 +137,10 @@ export function loadLevel(
         break;
       case "powerup":
         entities.push(readPowerup(obj));
+        break;
+      case "lava":
+      case "water":
+        entities.push(readHazard(obj, kind));
         break;
     }
   }
@@ -240,6 +245,29 @@ function readPowerup(obj: TiledObject): PowerupConfig {
     y: readPlacementCoord(obj, "y"),
     effect,
     durationMs: readNumberProp(obj, "durationMs"),
+  });
+}
+
+/**
+ * Read a hazard rectangle (lava or water). Required: id property +
+ * rect width/height. x/y come from the placement coord (top-left of
+ * the Tiled rectangle).
+ */
+function readHazard(obj: TiledObject, kind: "lava" | "water"): HazardConfig {
+  const w = obj.width;
+  const h = obj.height;
+  if (typeof w !== "number" || typeof h !== "number" || w <= 0 || h <= 0) {
+    throw new LevelLoadError(
+      `level-loader: hazard \`${nameOf(obj)}\` (${kind}) must be a rectangle with width + height > 0`,
+    );
+  }
+  return Object.freeze<HazardConfig>({
+    kind,
+    id: readStringProp(obj, "id"),
+    x: readPlacementCoord(obj, "x"),
+    y: readPlacementCoord(obj, "y"),
+    w,
+    h,
   });
 }
 

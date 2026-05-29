@@ -108,6 +108,16 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
    * that the first fire is allowed.
    */
   private lastFireTimeMs = -Infinity;
+  /**
+   * Reference count of overlapping water zones. Incremented by
+   * enterWater(), decremented by leaveWater(). When > 0, horizontal
+   * velocity is halved on update so movement feels slow.
+   *
+   * Why a counter and not a bool: Phaser's overlap callback can fire
+   * MULTIPLE times per frame for overlapping zones with different
+   * physics bodies. A bool would race; a counter is correct.
+   */
+  private inWaterCount = 0;
 
   /**
    * Construct the hero at the given world coordinates. The constructor
@@ -209,7 +219,10 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
     if (action.moveDirection === 0) {
       body.setVelocityX(0);
     } else {
-      body.setVelocityX(action.moveDirection * HERO.moveSpeedPxPerSec);
+      // Water halves horizontal speed. Conservation of intent: input
+      // still maps to direction, just at reduced effect.
+      const speedMul = this.inWaterCount > 0 ? 0.5 : 1;
+      body.setVelocityX(action.moveDirection * HERO.moveSpeedPxPerSec * speedMul);
       // Sprite-flip convention: the Kenney pixel-platformer character
       // sheet's default frame faces LEFT. To make the sprite face the
       // direction of travel, we flip when moving RIGHT (which mirrors
@@ -301,6 +314,33 @@ export class Hero extends Phaser.Physics.Arcade.Sprite {
   /** Remaining ms on the powerup timer (0 if not powered). HUD reads this. */
   public getPowerupRemainingMs(): number {
     return this.powerup.remainingMs(this.scene.time.now);
+  }
+
+  /**
+   * Tell the hero it just entered a water zone. Refcounted so
+   * overlapping multiple water rects in the same frame doesn't
+   * corrupt the in-water state. Called from LevelScene's water
+   * overlap callback.
+   */
+  public enterWater(): void {
+    this.inWaterCount += 1;
+  }
+
+  /**
+   * Tell the hero it just exited a water zone. Refcount safe.
+   * Called from a Phaser per-frame check in LevelScene (NOT from
+   * a Phaser "overlap end" callback - that doesn't exist; we have
+   * to detect water exit by polling each frame).
+   */
+  public leaveWater(): void {
+    if (this.inWaterCount > 0) {
+      this.inWaterCount -= 1;
+    }
+  }
+
+  /** Whether the hero is currently inside one or more water zones. */
+  public isInWater(): boolean {
+    return this.inWaterCount > 0;
   }
 
   /**
