@@ -37,7 +37,9 @@ import Phaser from "phaser";
 
 import { PALETTE_HEX } from "../config/palette.js";
 import { UI } from "../config/ui.js";
+import { REGISTRY_KEY_ACTIVE_PROFILE_KEY, REGISTRY_KEY_SAVE_SERVICE } from "../game.js";
 import { t } from "../i18n/index.js";
+import { LEGACY_PROFILE_KEY, type SaveService } from "../services/save-service.js";
 import { REGISTRY_KEY_SOUND_FX, type SoundFx } from "../systems/sound-fx.js";
 import { REGISTRY_KEY_TOUCH_INPUT, TouchInputStore } from "../systems/touch-input-store.js";
 
@@ -465,6 +467,7 @@ export class UIScene extends Phaser.Scene {
   private buildHud(): void {
     this.buildHearts(this.readLives());
     this.buildCarrotCounter(this.readCarrots());
+    this.buildGemCounter();
     this.buildPowerTimer();
     this.buildMuteToggle();
     this.setupNarratorSubscription();
@@ -535,6 +538,51 @@ export class UIScene extends Phaser.Scene {
   /** Format the carrot counter. Padded so the layout doesn't shift. */
   private formatCarrotCount(count: number): string {
     return `× ${count.toString().padStart(2, "0")}`;
+  }
+
+  /**
+   * Build the gem counter below the carrot counter. Read once from
+   * SaveState on mount; gems don't change during play (only in the
+   * Treasure Box / market in TreasureScene), so no registry watch.
+   *
+   * Surfaces the conservation thesis during play: the kid sees their
+   * gems alongside their per-run carrots, so "the thing I'm keeping"
+   * stays visible while "the thing I might spend" is also in view.
+   */
+  private buildGemCounter(): void {
+    const gems = this.readGemsFromSave();
+    // Position: one line below the carrot counter.
+    const y = UI.carrotsTopPx + 24;
+    // Same right-edge alignment as carrot counter; gem emoji acts as
+    // the icon (we don't have a gem sprite in the existing Kenney
+    // icons-pixel-platformer-tiles sheet at a frame index we know is
+    // gem-shaped, so the emoji is the safer choice here).
+    this.add
+      .text(this.scale.width - UI.carrotsRightPx, y, `💎 ${gems.toString()}`, {
+        fontFamily: "monospace",
+        fontSize: `${UI.hudFontSizePx.toString()}px`,
+        color: PALETTE_HEX.textCream,
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setAlpha(0.9);
+  }
+
+  /** Read the active profile's gem count from SaveService. 0 on any failure. */
+  private readGemsFromSave(): number {
+    const saveService = this.registry.get(REGISTRY_KEY_SAVE_SERVICE) as SaveService | undefined;
+    if (saveService === undefined) {
+      return 0;
+    }
+    const profileKey = this.registry.get(REGISTRY_KEY_ACTIVE_PROFILE_KEY) as unknown;
+    const key =
+      typeof profileKey === "string" && profileKey.length > 0 ? profileKey : LEGACY_PROFILE_KEY;
+    try {
+      return saveService.load(key).gems;
+    } catch {
+      return 0;
+    }
   }
 
   /**
