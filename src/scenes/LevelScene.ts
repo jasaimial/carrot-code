@@ -41,7 +41,7 @@ import Phaser from "phaser";
 import { HERO } from "../config/hero.js";
 import { PALETTE_HEX } from "../config/palette.js";
 import { getNarratorBeatsForLevel } from "../data/narrator-beats.js";
-import { type LevelId } from "../data/levels/index.js";
+import { type LevelId, LevelRegistry } from "../data/levels/index.js";
 import { Enemy } from "../entities/enemy.js";
 import { Hero } from "../entities/hero.js";
 import { createPickup } from "../entities/pickup.js";
@@ -167,8 +167,67 @@ export class LevelScene extends Phaser.Scene {
       : LEGACY_PROFILE_KEY;
   }
 
-  /** Phaser hook — build the tilemap and configure the camera. */
+  /**
+   * Phaser hook — build the tilemap and configure the camera.
+   *
+   * If the level's tilemap JSON is already in Phaser's cache (the
+   * usual case for level-01, which BootScene preloaded), build runs
+   * synchronously. If not (level-02 on first visit — BootScene only
+   * preloads its initial level), queue a load + run build when the
+   * loader completes.
+   *
+   * Without this lazy-load, Hop In to a non-preloaded level threw
+   * 'tilemap not found in Phaser cache' inside readTilemapFromCache,
+   * which aborted the scene transition mid-flight and looked like a
+   * whole-scene freeze. Confirmed by maintainer 2026-05-28 on Hop In
+   * with level-02 selected.
+   */
   public create(): void {
+    if (this.cache.tilemap.has(this.levelId)) {
+      this.buildLevel();
+      return;
+    }
+    this.drawLoadingPlaceholder();
+    void this.lazyLoadTilemapThenBuild();
+  }
+
+  /** Draw a tiny "loading…" while the missing tilemap fetches. */
+  private drawLoadingPlaceholder(): void {
+    const { width, height } = this.scale;
+    this.add
+      .text(width / 2, height / 2, "Loading…", {
+        fontFamily: "monospace",
+        fontSize: "20px",
+        color: PALETTE_HEX.textCream,
+      })
+      .setOrigin(0.5);
+  }
+
+  /** Async lazy-load path: queue the tilemap, await complete, then build. */
+  private async lazyLoadTilemapThenBuild(): Promise<void> {
+    const levelLoader = LevelRegistry[this.levelId];
+    const levelModule = await levelLoader();
+    const levelUrl: string = levelModule.default;
+    this.load.tilemapTiledJSON(this.levelId, levelUrl);
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      this.buildLevel();
+    });
+    this.load.start();
+    // Empty-queue defensive fallback (mirrors BootScene's same
+    // pattern). Phaser sometimes doesn't fire COMPLETE for empty
+    // queues; the tilemap queue here is non-empty by definition
+    // but the guard is cheap.
+    if (this.load.totalToLoad === 0) {
+      this.buildLevel();
+    }
+  }
+
+  /**
+   * The actual scene-build logic. Extracted from create() so both the
+   * sync (tilemap already cached) and async (lazy-loaded) paths can
+   * call it.
+   */
+  private buildLevel(): void {
     const tiledJson = this.readTilemapFromCache();
     const level = this.parseLevelData(tiledJson);
     this.level = level;
