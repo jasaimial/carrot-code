@@ -81,9 +81,10 @@ export class TreasureScene extends Phaser.Scene {
   private boxGemsText: Phaser.GameObjects.Text | undefined;
   private marketFeedbackText: Phaser.GameObjects.Text | undefined;
   private marketFeedbackTimer: Phaser.Time.TimerEvent | undefined;
-  // Level row group so we can rebuild it after the player selects.
-  private readonly levelRowRects: Phaser.GameObjects.Rectangle[] = [];
-  private readonly levelRowTexts: Phaser.GameObjects.Text[] = [];
+  // Level row state - mapped by LevelId so we can update visuals
+  // in place on selection change rather than destroy + rebuild
+  // (destroy-mid-pointer-event freezes Phaser's input system).
+  private readonly levelRowBgs = new Map<LevelId, Phaser.GameObjects.Rectangle>();
 
   public constructor() {
     super({ key: "TreasureScene" });
@@ -99,8 +100,7 @@ export class TreasureScene extends Phaser.Scene {
     this.boxGemsText = undefined;
     this.marketFeedbackText = undefined;
     this.marketFeedbackTimer = undefined;
-    this.levelRowRects.length = 0;
-    this.levelRowTexts.length = 0;
+    this.levelRowBgs.clear();
   }
 
   /** Phaser hook — render the full lobby. */
@@ -288,14 +288,54 @@ export class TreasureScene extends Phaser.Scene {
 
   /** Build the list of selectable levels under the Level header. */
   private buildLevelList(cx: number, topY: number, state: SaveState): void {
-    let y = topY;
     const completed = new Set(state.completedLevelIds);
+
+    // Auto-select smart default on first build.
+    // Rule: if arriving from a level-complete outcome AND the next
+    // level is now unlocked, prefer it over what was passed in.
+    // Cohort UX feedback 2026-05-28: "it should automatically select
+    // once a previous level is done".
+    if (this.outcome === "complete") {
+      const nextLevel = this.findNextUnlockedAfter(this.selectedLevelId, completed);
+      if (nextLevel !== undefined) {
+        this.selectedLevelId = nextLevel;
+      }
+    } else {
+      // Always pick the highest unlocked level if the current selection
+      // is locked (shouldn't normally happen, defensive).
+      if (!this.isLevelUnlocked(this.selectedLevelId, completed)) {
+        this.selectedLevelId = FALLBACK_LEVEL_ID;
+      }
+    }
+
+    let y = topY;
     for (const id of LEVEL_IDS) {
       const isUnlocked = this.isLevelUnlocked(id, completed);
       const isCompleted = completed.has(id);
       this.buildLevelRow(cx, y, id, isUnlocked, isCompleted);
       y += 36;
     }
+  }
+
+  /**
+   * Find the next unlocked level after `currentId` (going by LEVEL_IDS
+   * order). Used by the auto-select logic on level-complete arrival.
+   * Returns undefined if currentId is already the last level or the
+   * next level isn't unlocked yet.
+   */
+  private findNextUnlockedAfter(
+    currentId: LevelId,
+    completed: ReadonlySet<string>,
+  ): LevelId | undefined {
+    const currentIdx = LEVEL_IDS.indexOf(currentId);
+    if (currentIdx === -1 || currentIdx === LEVEL_IDS.length - 1) {
+      return undefined;
+    }
+    const next = LEVEL_IDS[currentIdx + 1];
+    if (next === undefined) {
+      return undefined;
+    }
+    return this.isLevelUnlocked(next, completed) ? next : undefined;
   }
 
   /** True if this level is playable given current completedLevelIds. */
@@ -315,25 +355,13 @@ export class TreasureScene extends Phaser.Scene {
     isUnlocked: boolean,
     isCompleted: boolean,
   ): void {
-    const isSelected = id === this.selectedLevelId;
     const rowW = 380;
     const rowH = 30;
 
     const bg = this.add
-      .rectangle(
-        cx,
-        cy,
-        rowW,
-        rowH,
-        this.hexToNumber(isSelected ? PALETTE_HEX.uiCarrot : PALETTE_HEX.bgDialog),
-        isSelected ? 0.3 : 0.5,
-      )
+      .rectangle(cx, cy, rowW, rowH, this.hexToNumber(PALETTE_HEX.bgDialog), 0.5)
       .setOrigin(0.5, 0)
-      .setStrokeStyle(
-        1,
-        this.hexToNumber(isSelected ? PALETTE_HEX.uiCarrot : PALETTE_HEX.textCream),
-        isSelected ? 1.0 : 0.3,
-      );
+      .setStrokeStyle(1, this.hexToNumber(PALETTE_HEX.textCream), 0.3);
 
     const label = id === "level-01" ? "Level 1 — The Cartridge" : "Level 2 — The Twilight Forest";
     const statusSuffix = !isUnlocked
@@ -342,11 +370,11 @@ export class TreasureScene extends Phaser.Scene {
         ? `  ${t("lobby.levelCompleted")}`
         : "";
 
-    const text = this.add
+    this.add
       .text(cx - rowW / 2 + 14, cy + rowH / 2, `${label}${statusSuffix}`, {
         fontFamily: "monospace",
         fontSize: "13px",
-        color: isUnlocked ? PALETTE_HEX.textCream : PALETTE_HEX.textCream,
+        color: PALETTE_HEX.textCream,
       })
       .setOrigin(0, 0.5)
       .setAlpha(isUnlocked ? 1 : 0.4);
@@ -354,28 +382,44 @@ export class TreasureScene extends Phaser.Scene {
     if (isUnlocked) {
       bg.setInteractive({ useHandCursor: true });
       bg.on(Phaser.Input.Events.POINTER_DOWN, () => {
+        // Just update selection state - do NOT destroy + rebuild rows
+        // here. Destroying the bg rect mid-pointer-event freezes
+        // Phaser's input system. Updating visuals in-place is safe.
         this.selectedLevelId = id;
-        // Re-render level list to reflect new selection.
-        this.redrawLevelList();
+        this.refreshLevelRowVisuals();
       });
     }
 
-    this.levelRowRects.push(bg);
-    this.levelRowTexts.push(text);
+    // Track for later visual refresh. Even locked rows are tracked so
+    // they show the dim state consistently.
+    this.levelRowBgs.set(id, bg);
+
+    // Apply initial selected-state visuals.
+    this.applyRowSelectedVisuals(bg, id === this.selectedLevelId);
   }
 
   /**
-   * Re-render the level list after a selection change. Cheap: just
-   * destroy the existing row objects and rebuild from scratch.
+   * Refresh every level row's selected-state visuals from the current
+   * `selectedLevelId`. Cheap: just walks the Map and updates colors
+   * + stroke; no GameObject creation or destruction.
    */
-  private redrawLevelList(): void {
-    for (const r of this.levelRowRects) r.destroy();
-    for (const t of this.levelRowTexts) t.destroy();
-    this.levelRowRects.length = 0;
-    this.levelRowTexts.length = 0;
-    const { width } = this.scale;
-    const state = this.readActiveSaveState();
-    this.buildLevelList(width / 2, 380, state);
+  private refreshLevelRowVisuals(): void {
+    for (const [id, bg] of this.levelRowBgs) {
+      this.applyRowSelectedVisuals(bg, id === this.selectedLevelId);
+    }
+  }
+
+  /** Apply selected/unselected fill + stroke to a row's bg rectangle. */
+  private applyRowSelectedVisuals(bg: Phaser.GameObjects.Rectangle, isSelected: boolean): void {
+    bg.setFillStyle(
+      this.hexToNumber(isSelected ? PALETTE_HEX.uiCarrot : PALETTE_HEX.bgDialog),
+      isSelected ? 0.3 : 0.5,
+    );
+    bg.setStrokeStyle(
+      isSelected ? 2 : 1,
+      this.hexToNumber(isSelected ? PALETTE_HEX.uiCarrot : PALETTE_HEX.textCream),
+      isSelected ? 1.0 : 0.3,
+    );
   }
 
   /** Build the bottom-right Hop In button. The text itself is the click target. */
