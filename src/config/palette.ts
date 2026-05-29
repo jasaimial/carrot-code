@@ -44,6 +44,16 @@ export const PALETTE_HEX = {
   bgSkyTop: "#92c0d4",
   /** Sky gradient horizon — sage teal that meets the forest. Backdrop only. */
   bgSkyHorizon: "#5f8a7c",
+  /** Twilight sky top (level-02). Deep indigo. */
+  bgTwilightTop: "#1f1640",
+  /** Twilight sky horizon (level-02). Violet-purple. */
+  bgTwilightHorizon: "#5e2a72",
+  /** Drift cloud color — soft warm gray, day backdrop only. */
+  bgCloud: "#d8d3c4",
+  /** Twilight drift cloud color — lavender wash, level-02. */
+  bgCloudTwilight: "#9a7fb0",
+  /** Castle silhouette color (level-02 mid-distance). */
+  bgCastleSilhouette: "#0e0a26",
   /** Warm cream — primary foreground text, manifest background fallback. */
   textCream: "#fdf6e3",
   /** Carrot orange — collectibles, accent flourishes. */
@@ -71,6 +81,11 @@ export const PALETTE = {
   bgForest: hexToNumber(PALETTE_HEX.bgForest),
   bgSkyTop: hexToNumber(PALETTE_HEX.bgSkyTop),
   bgSkyHorizon: hexToNumber(PALETTE_HEX.bgSkyHorizon),
+  bgTwilightTop: hexToNumber(PALETTE_HEX.bgTwilightTop),
+  bgTwilightHorizon: hexToNumber(PALETTE_HEX.bgTwilightHorizon),
+  bgCloud: hexToNumber(PALETTE_HEX.bgCloud),
+  bgCloudTwilight: hexToNumber(PALETTE_HEX.bgCloudTwilight),
+  bgCastleSilhouette: hexToNumber(PALETTE_HEX.bgCastleSilhouette),
   textCream: hexToNumber(PALETTE_HEX.textCream),
   uiCarrot: hexToNumber(PALETTE_HEX.uiCarrot),
   uiHeart: hexToNumber(PALETTE_HEX.uiHeart),
