@@ -193,16 +193,20 @@ export class StartScene extends Phaser.Scene {
     });
   }
 
-  /** Build one profile row: handle + gems + "Play" button. */
+  /** Build one profile row: handle + gems + "Play" button. Whole row is clickable. */
   private buildProfileRow(cx: number, cy: number, profile: ProfileRow): void {
     const rowW = 380;
     const rowH = 36;
 
-    // Background.
-    this.add
+    // Background. The row IS the click target - the whole rectangle
+    // routes to setActiveProfileAndGoToTreasure. Touch-friendly +
+    // prevents the bug where a separate-hit-zone play button missed
+    // the visible Play text (2026-05-28 maintainer report).
+    const bg = this.add
       .rectangle(cx, cy, rowW, rowH, this.hexToNumber(PALETTE_HEX.bgDialog), 0.6)
       .setOrigin(0.5, 0)
-      .setStrokeStyle(1, this.hexToNumber(PALETTE_HEX.textCream), 0.3);
+      .setStrokeStyle(1, this.hexToNumber(PALETTE_HEX.textCream), 0.3)
+      .setInteractive({ useHandCursor: true });
 
     // Handle text (left).
     const handleText = profile.isLegacy
@@ -226,7 +230,8 @@ export class StartScene extends Phaser.Scene {
       .setOrigin(0, 0.5)
       .setAlpha(0.85);
 
-    // Play button (right).
+    // Play label (right). Just a visual affordance - the whole row is
+    // the actual click target.
     const playLabel = this.add
       .text(cx + rowW / 2 - 14, cy + rowH / 2, t("start.resumeButton"), {
         fontFamily: "monospace",
@@ -237,18 +242,15 @@ export class StartScene extends Phaser.Scene {
       })
       .setOrigin(1, 0.5);
 
-    const playHit = this.add
-      .rectangle(cx + rowW / 2 - 50, cy + rowH / 2, 100, 28)
-      .setOrigin(1, 0.5)
-      .setInteractive({ useHandCursor: true });
-
-    playHit.on(Phaser.Input.Events.POINTER_OVER, () => {
+    bg.on(Phaser.Input.Events.POINTER_OVER, () => {
       playLabel.setColor(PALETTE_HEX.textCream);
+      bg.setFillStyle(this.hexToNumber(PALETTE_HEX.bgDialog), 0.85);
     });
-    playHit.on(Phaser.Input.Events.POINTER_OUT, () => {
+    bg.on(Phaser.Input.Events.POINTER_OUT, () => {
       playLabel.setColor(PALETTE_HEX.uiCarrot);
+      bg.setFillStyle(this.hexToNumber(PALETTE_HEX.bgDialog), 0.6);
     });
-    playHit.on(Phaser.Input.Events.POINTER_DOWN, () => {
+    bg.on(Phaser.Input.Events.POINTER_DOWN, () => {
       this.setActiveProfileAndGoToTreasure(profile.key);
     });
   }
