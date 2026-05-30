@@ -695,19 +695,61 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  /** Lazily build the dialog container; subsequent calls just update text. */
+  /**
+   * Lazily build the dialog container; subsequent calls just update text.
+   *
+   * Defensive: bail if the scene isn't active OR if any of the cached
+   * GameObject refs are destroyed-but-not-nulled. Calling setText on a
+   * Phaser Text whose backing texture is null crashes inside Phaser's
+   * render pipeline (drawImage on null). Same defensive shape as the
+   * onCarrotsChanged handler.
+   *
+   * Race-condition workaround: when the container is being built for
+   * the very first time on a fresh scene mount, the underlying
+   * CanvasTexture for the Text object may not be initialized by the
+   * time we call setText synchronously. Defer to next frame in that
+   * case. Subsequent calls (container already exists) are fine
+   * synchronously. Confirmed crash 2026-05-29 on level-02 first-mount
+   * narrator beat: drawImage-on-null in Phaser render pipeline.
+   */
   private showNarrator(text: string): void {
+    if (!this.scene.isActive()) {
+      return;
+    }
     if (this.narratorContainer === undefined) {
       this.buildNarratorContainer();
+      // First-mount path: defer the setText one frame so the text's
+      // backing texture is fully initialized first.
+      this.time.delayedCall(0, () => {
+        this.applyNarratorText(text);
+      });
+      return;
     }
-    this.narratorBodyText?.setText(text);
-    this.narratorContainer?.setVisible(true);
+    this.applyNarratorText(text);
+  }
+
+  /** Apply text + visibility to the narrator UI. Both fields .active-guarded. */
+  private applyNarratorText(text: string): void {
+    if (!this.scene.isActive()) {
+      return;
+    }
+    if (this.narratorBodyText?.active === true) {
+      this.narratorBodyText.setText(text);
+    }
+    if (this.narratorContainer?.active === true) {
+      this.narratorContainer.setVisible(true);
+    }
     this.narratorVisible = true;
   }
 
   /** Hide the dialog (kept around for reuse on the next beat). */
   private hideNarrator(): void {
-    this.narratorContainer?.setVisible(false);
+    if (!this.scene.isActive()) {
+      return;
+    }
+    if (this.narratorContainer?.active === true) {
+      this.narratorContainer.setVisible(false);
+    }
     this.narratorVisible = false;
   }
 
